@@ -1,0 +1,10 @@
+#!/bin/bash
+
+set -e
+
+shift
+cmd="$@"
+
+echo "127.0.0.1 $HOSTNAME" >> /etc/hosts
+
+exec $cmd
