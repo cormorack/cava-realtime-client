@@ -7,7 +7,6 @@ import lombok.Setter;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.serialization.Serdes;
 import org.apache.kafka.streams.KafkaStreams;
-import org.apache.kafka.streams.KeyValue;
 import org.apache.kafka.streams.errors.InvalidStateStoreException;
 import org.apache.kafka.streams.state.*;
 import org.eclipse.jetty.server.Server;
@@ -24,9 +23,7 @@ import javax.ws.rs.core.Context;
 import javax.ws.rs.core.GenericType;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.UriInfo;
-import java.util.ArrayList;
 import java.util.List;
-import java.util.Set;
 import java.util.stream.Collectors;
 
 @Path("messages")
@@ -38,12 +35,23 @@ public class RestService {
     private Server jettyServer;
     private final Client client = ClientBuilder.newBuilder().register(JacksonFeature.class).build();
 
+    /**
+     *
+     * @param streams
+     * @param storeName
+     * @param hostName
+     * @param port
+     */
     public RestService(final KafkaStreams streams, final String storeName, final String hostName, final int port) {
         this.streams = streams;
         this.storeName = storeName;
         this.hostInfo = new HostInfo(hostName, port);
     }
 
+    /**
+     *
+     * @throws Exception
+     */
     public void start() throws Exception {
         ServletContextHandler context = new ServletContextHandler(ServletContextHandler.SESSIONS);
         context.setContextPath("/");
@@ -62,22 +70,33 @@ public class RestService {
         jettyServer.start();
     }
 
+    /**
+     *
+     * @throws Exception
+     */
     public void stop() throws Exception {
         if (jettyServer != null) {
             jettyServer.stop();
         }
     }
 
+    /**
+     *
+     * @param key
+     * @param uriInfo
+     * @return
+     * @throws InterruptedException
+     */
     @GET
     @Path("/{key}")
     @Produces(MediaType.APPLICATION_JSON)
     public KeyValueBean valueByKey(@PathParam("key") final String key, @Context UriInfo uriInfo) throws InterruptedException {
 
-        System.out.println("key is " + key);
+        //System.out.println("key is " + key);
 
         final StreamsMetadata metadata = streams.metadataForKey(storeName, key, Serdes.String().serializer());
 
-        System.out.println("metadata is " + metadata.toString());
+        //System.out.println("metadata is " + metadata.toString());
 
         if (metadata == null) {
             throw new NotFoundException();
@@ -86,13 +105,10 @@ public class RestService {
          if (metadata.hostInfo().host().toString() != "unavailable" &&
                  metadata.hostInfo().port() != -1 &&
                  !metadata.hostInfo().equals(hostInfo)) {
-             System.out.println("metadata host is " + metadata.hostInfo() + "and hostInfo is " + hostInfo + "so, calling fetchValue ... ");
+             //System.out.println("metadata host is " + metadata.hostInfo() + "and hostInfo is " + hostInfo + "so, calling fetchValue ... ");
              return fetchValue(metadata.hostInfo(), uriInfo.getPath(), new GenericType<KeyValueBean>() {});
          }
 
-        System.out.println("hostInfo is " + hostInfo);
-
-        //final ReadOnlyKeyValueStore<String, String> store = streams.store(storeName, QueryableStoreTypes.keyValueStore());
         final ReadOnlyKeyValueStore<String, String> store = waitUntilStoreIsQueryable(storeName, QueryableStoreTypes.keyValueStore(), streams);
 
         if (store == null) {
@@ -104,12 +120,20 @@ public class RestService {
         if (value == null) {
             throw new NotFoundException();
         }
-        System.out.println("value is " + value);
+        //System.out.println("value is " + value);
 
         return new KeyValueBean(key, value);
     }
 
-    // Example: Wait until the store of type T is queryable.  When it is, return a reference to the store.
+    /**
+     *  Wait until the store of type T is queryable.  When it is, return a reference to the store
+     * @param storeName
+     * @param queryableStoreType
+     * @param streams
+     * @param <T>
+     * @return
+     * @throws InterruptedException
+     */
     private static <T> T waitUntilStoreIsQueryable(final String storeName,
                                                   final QueryableStoreType<T> queryableStoreType,
                                                   final KafkaStreams streams) throws InterruptedException {
@@ -123,12 +147,23 @@ public class RestService {
         }
     }
 
+    /**
+     *
+     * @param host
+     * @param path
+     * @param responseType
+     * @param <T>
+     * @return
+     */
     private <T> T fetchValue(final HostInfo host, final String path, GenericType<T> responseType) {
         return client.target(String.format("http://%s:%d/%s", host.host(), host.port(), path))
                 .request(MediaType.APPLICATION_JSON_TYPE)
                 .get(responseType);
     }
 
+    /**
+     *
+     */
     @AllArgsConstructor
     @NoArgsConstructor
     @Getter
@@ -139,6 +174,10 @@ public class RestService {
         private List<Integer> topicPartitions;
     }
 
+    /**
+     *
+     * @return
+     */
     @GET()
     @Path("/processors")
     @Produces(MediaType.APPLICATION_JSON)

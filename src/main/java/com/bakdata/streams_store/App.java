@@ -96,39 +96,6 @@ public class App {
 
         final Topology topology = builder.build();
 
-        /*Collection topics = new HashSet();
-
-        AdminClient adminClient = AdminClient.create(props);
-
-        for (TopicListing topicListing : adminClient.listTopics().listings().get()) {
-            System.out.println("Topics are " + topicListing.name());
-            topics.add(topicListing.name());
-        }
-
-        final StreamsBuilder builder = new StreamsBuilder();
-
-        KeyValueBytesStoreSupplier stateStore = Stores.inMemoryKeyValueStore(storeName);
-
-        Topology topology = new Topology();
-
-        Iterator iterator = topics.iterator();
-
-        while (iterator.hasNext()) {
-
-            KTable<String, String> table = builder.table(
-                    iterator.next().toString(),
-                    Materialized.<String, String>as(stateStore)
-                            .withKeySerde(Serdes.String())
-                            .withValueSerde(Serdes.String())
-            );
-        }
-
-        System.out.println("topics are " + topics.toArray().toString());
-
-        topology.addSource("instruments", topics.toArray().toString());
-
-        topology = builder.build();*/
-
         final KafkaStreams streams = new KafkaStreams(topology, props);
 
         final RestService restService = new RestService(streams, storeName, hostName, port);
