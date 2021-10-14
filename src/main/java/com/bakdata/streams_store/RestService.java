@@ -1,5 +1,7 @@
 package com.bakdata.streams_store;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -15,7 +17,7 @@ import org.eclipse.jetty.servlet.ServletHolder;
 import org.glassfish.jersey.jackson.JacksonFeature;
 import org.glassfish.jersey.server.ResourceConfig;
 import org.glassfish.jersey.servlet.ServletContainer;
-
+import org.json.JSONObject;
 import javax.ws.rs.*;
 import javax.ws.rs.client.Client;
 import javax.ws.rs.client.ClientBuilder;
@@ -23,7 +25,10 @@ import javax.ws.rs.core.Context;
 import javax.ws.rs.core.GenericType;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.UriInfo;
+import java.io.IOException;
+import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @Path("messages")
@@ -62,6 +67,7 @@ public class RestService {
         ResourceConfig rc = new ResourceConfig();
         rc.register(this);
         rc.register(JacksonFeature.class);
+        rc.register(CorsFilter.class, 1);
 
         ServletContainer sc = new ServletContainer(rc);
         ServletHolder holder = new ServletHolder(sc);
@@ -92,7 +98,7 @@ public class RestService {
     @Produces(MediaType.APPLICATION_JSON)
     public KeyValueBean valueByKey(@PathParam("key") final String key, @Context UriInfo uriInfo) throws InterruptedException {
 
-        //System.out.println("key is " + key);
+        System.out.println("key is " + key);
 
         final StreamsMetadata metadata = streams.metadataForKey(storeName, key, Serdes.String().serializer());
 
@@ -120,9 +126,12 @@ public class RestService {
         if (value == null) {
             throw new NotFoundException();
         }
-        //System.out.println("value is " + value);
 
-        return new KeyValueBean(key, value);
+        String valueString = toJson(value);
+
+        System.out.println("value is " + valueString);
+
+        return new KeyValueBean(key, valueString);
     }
 
     /**
@@ -192,6 +201,124 @@ public class RestService {
                                 .collect(Collectors.toList()))
                 )
                 .collect(Collectors.toList());
+    }
+
+    /**
+     *
+     * @param valueString
+     * @return java.lang.String
+     */
+    private String toJson(String valueString) {
+
+        ObjectMapper mapper = new ObjectMapper();
+        JsonNode actualObj = null;
+
+        try {
+            actualObj = mapper.readTree(valueString);
+        } catch (IOException e) {
+            e.printStackTrace();
+            return valueString;
+        }
+
+        JsonNode dataNode = actualObj.get("data");
+        if (dataNode.isNull()) {
+            return valueString;
+        }
+
+        JSONObject json = new JSONObject();
+        processNode(dataNode, json, 0);
+        return json.toString();
+    }
+
+    /**
+     *
+     * @param jsonNode
+     * @param json
+     * @param depth
+     */
+    private void processNode(JsonNode jsonNode, JSONObject json, int depth) {
+
+        /*if (jsonNode.isValueNode()) {
+          System.out.println("I'm a valueNode " + splitLast( jsonNode.asText()));
+        }*/
+        if (jsonNode.isArray()) {
+            for (JsonNode arrayItem : jsonNode) {
+                appendNodeToJson(arrayItem, json, depth, true);
+            }
+        }
+        else if (jsonNode.isObject()) {
+            appendNodeToJson(jsonNode, json, depth, false);
+        }
+    }
+
+    /**
+     *
+     * @param node
+     * @param json
+     * @param depth
+     * @param isArrayItem
+     */
+    private void appendNodeToJson(JsonNode node, JSONObject json, int depth, boolean isArrayItem) {
+
+        Iterator<Map.Entry<String, JsonNode>> fields = node.fields();
+        boolean isFirst = true;
+
+        while (fields.hasNext()) {
+            Map.Entry<String, JsonNode> jsonField = fields.next();
+            addFieldNameToJson(json, jsonField.getKey(), jsonField.getValue().toString(), depth, isArrayItem && isFirst);
+            processNode(jsonField.getValue(), json, depth + 1);
+            isFirst = false;
+        }
+    }
+
+    /**
+     *
+     * @param json
+     * @param fieldName
+     * @param fieldValue
+     * @param depth
+     * @param isFirstInArray
+     */
+    private void addFieldNameToJson(JSONObject json, String fieldName, String fieldValue, int depth, boolean isFirstInArray) {
+
+        if (!fieldName.contains("timestamp") &&
+                !fieldName.contains("string") &&
+                !fieldName.contains("coefficient") &&
+                !fieldName.contains("volt")) {
+
+            json.put(fieldName, getLastValue(fieldValue));
+        }
+    }
+
+    /**
+     *
+     * @param value
+     * @return java.lang.String
+     */
+    private String getLastValue(String value) {
+
+        String newVal = value;
+        int index = value.lastIndexOf(",");
+        if (index != -1) {
+            newVal = value.substring(index + 1);
+        }
+        newVal = newVal.replaceAll("\\]", "")
+                .replaceAll("\\[", "")
+                .replaceAll("\"", "");
+        return filterCharacters(newVal);
+    }
+
+    /**
+     *
+     * @param value
+     * @return java.lang.String
+     */
+    private String filterCharacters(String value) {
+
+        String newValue = value.replaceAll("\\]", "")
+                .replaceAll("\\[", "")
+                .replaceAll("\"", "");
+        return newValue;
     }
 }
 
