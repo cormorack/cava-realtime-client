@@ -18,7 +18,6 @@ import org.glassfish.jersey.jackson.JacksonFeature;
 import org.glassfish.jersey.server.ResourceConfig;
 import org.glassfish.jersey.servlet.ServletContainer;
 import org.json.JSONObject;
-
 import javax.ws.rs.*;
 import javax.ws.rs.client.Client;
 import javax.ws.rs.client.ClientBuilder;
@@ -68,6 +67,7 @@ public class RestService {
         ResourceConfig rc = new ResourceConfig();
         rc.register(this);
         rc.register(JacksonFeature.class);
+        rc.register(CorsFilter.class, 1);
 
         ServletContainer sc = new ServletContainer(rc);
         ServletHolder holder = new ServletHolder(sc);
@@ -98,7 +98,7 @@ public class RestService {
     @Produces(MediaType.APPLICATION_JSON)
     public KeyValueBean valueByKey(@PathParam("key") final String key, @Context UriInfo uriInfo) throws InterruptedException {
 
-        //System.out.println("key is " + key);
+        System.out.println("key is " + key);
 
         final StreamsMetadata metadata = streams.metadataForKey(storeName, key, Serdes.String().serializer());
 
@@ -126,9 +126,10 @@ public class RestService {
         if (value == null) {
             throw new NotFoundException();
         }
-        //System.out.println("value is " + value);
 
         String valueString = toJson(value);
+
+        System.out.println("value is " + valueString);
 
         return new KeyValueBean(key, valueString);
     }
