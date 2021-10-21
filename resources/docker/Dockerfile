@@ -1,4 +1,6 @@
-FROM maven:3.5-jdk-8-slim
+ARG MAVEN_IMAGE_VERSION=3.5-jdk-8-slim
+ARG OPENJDK_IMAGE_VERSION=8-jre-slim
+FROM maven:$MAVEN_IMAGE_VERSION
 
 WORKDIR /app
 
@@ -9,7 +11,7 @@ RUN mvn clean verify --fail-never
 ADD src src
 RUN mvn package
 
-FROM openjdk:8-jre-slim
+FROM openjdk:$OPENJDK_IMAGE_VERSION
 
 WORKDIR /app
 
