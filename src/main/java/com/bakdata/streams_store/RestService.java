@@ -203,6 +203,14 @@ public class RestService {
                 .collect(Collectors.toList());
     }
 
+    @GET()
+    @Path("/status")
+    @Produces(MediaType.APPLICATION_JSON)
+    public String status() {
+
+        return "App is up!";
+    }
+
     /**
      *
      * @param valueString
@@ -302,9 +310,6 @@ public class RestService {
         if (index != -1) {
             newVal = value.substring(index + 1);
         }
-        newVal = newVal.replaceAll("\\]", "")
-                .replaceAll("\\[", "")
-                .replaceAll("\"", "");
         return filterCharacters(newVal);
     }
 
