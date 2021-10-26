@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Values.configmap.name }}
+data:
+  streams-processor.properties: |
+    {{- if .Values.configmap.kafkaHost }}
+    bootstrap.servers={{ .Values.configmap.kafkaHost }}:{{ .Values.configmap.kafkaPort }}
+    {{- else }}
+    bootstrap.servers={{ .Release.Name }}-kafka:9092
+    {{- end }}
+    num.standby.replicas={{ .Values.configmap.replicas }}

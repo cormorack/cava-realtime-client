@@ -1,0 +1,45 @@
+# Default values for cava-realtime-client.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+nameOverride: cava-realtime-client
+# fullnameOverride: cava-realtime-client
+path: /messages
+service:
+  targetPort: 8081
+  portName: http
+  type: ClusterIP
+  port: 80
+  containerPort: 8081
+  servicePortName: http
+image:
+  repository: cormorack/cava-realtime-client
+  tag: "set-by-chartpress"
+  pullSecrets: []
+  pullPolicy: Always
+replicas: 1
+resources: {}
+env: []
+restartPolicy: Always
+nodeSelector: {}
+ingress:
+  expose: false
+
+  # If secure, must provide tls
+  secure: false
+
+  # Adds tls for domain certification
+  # tls:
+  #   certResolver: DEVELOPMENT
+  tls: {}
+
+configmap:
+  name: streams-processor-configmap
+  #kafka connection settings
+  kafkaHost: ""
+  kafkaPort: ""
+  replicas: 1
+arguments:
+  topics: ""
+  appID: ""
+cava-realtime:
+  enabled: true

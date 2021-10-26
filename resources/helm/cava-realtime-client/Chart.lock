@@ -1,0 +1,6 @@
+dependencies:
+- name: cava-realtime
+  repository: https://cormorack.github.io/cava-realtime
+  version: 0.1.0
+digest: sha256:c9bf9415a124c66de493cfc18f8438918c41244ab8064c8562fdb4d96e4ee25b
+generated: "2021-10-21T14:48:05.858551-07:00"

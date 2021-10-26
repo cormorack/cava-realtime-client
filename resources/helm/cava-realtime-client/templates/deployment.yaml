@@ -1,0 +1,61 @@
+{{- $serviceName := default (include "cava-realtime-client.name" .) -}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $serviceName }}
+  labels:
+    {{- include "cava-realtime-client.labels" . | nindent 4 }}
+    app.kubernetes.io/component: {{ $serviceName }}
+spec:
+  replicas: {{ .Values.replicas }}
+  strategy:
+    type: RollingUpdate
+  selector:
+    matchLabels:
+      {{- include "cava-realtime-client.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: {{ $serviceName }}
+  template:
+    metadata:
+      labels:
+        {{- include "cava-realtime-client.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: {{ $serviceName }}
+    spec:
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+      {{- toYaml . | nindent 8 }}
+      {{- end }}
+      imagePullSecrets:
+      {{- toYaml .Values.image.pullSecrets | nindent 8 }}
+      restartPolicy: {{ .Values.restartPolicy }}
+      volumes:
+        - name: streams-processor-config
+          configMap:
+            name: {{ .Values.configmap.name }}
+      containers:
+        - name: {{ $serviceName }}
+          env:
+            - name: POD_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.podIP
+          {{- if .Values.env }}
+          {{- toYaml .Values.env | nindent 12 }}
+          {{- end }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          args:
+            - --topic
+            - {{ .Values.arguments.topics }}
+            - --streams.config
+            - /var/config/streams-processor.properties
+            - --application-id
+            - {{ .Values.arguments.appID }}
+            - --hostname
+            - $(POD_IP)
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          resources:
+          {{- toYaml .Values.resources | nindent 12 }}
+          ports:
+            - containerPort: {{ .Values.service.containerPort }}
+          volumeMounts:
+            - name: streams-processor-config
+              mountPath: /var/config
