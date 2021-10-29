@@ -1,0 +1,13 @@
+charts:
+  - name: cava-realtime-client
+    repo:
+      git: cormorack/cava-realtime-client
+      published: https://cormorack.github.io/cava-realtime-client/
+    images:
+      cava-realtime-client:
+        imageName: cormorack/cava-realtime-client
+        contextPath: ../..
+        rebuildOnContextPathChanges: false
+        dockerfilePath: ../docker/Dockerfile
+        valuesPath:
+          - image
