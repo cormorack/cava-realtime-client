@@ -1,0 +1,10 @@
+title: Interactive Oceans Realtime Client Service Helm charts for Kubernetes
+description: This site stores Helm chart tarballs for Interactive Oceans Realtime Client Service.
+theme: minima
+url: "https://cormorack.github.io/cava-realtime-client/"
+repo_name: cava-realtime-client
+
+exclude:
+  - Gemfile
+  - Gemfile.lock
+  - .gitignore
