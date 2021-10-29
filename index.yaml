@@ -1,0 +1,20 @@
+apiVersion: v1
+entries:
+  cava-realtime-client:
+  - apiVersion: v2
+    appVersion: 0.1.0
+    created: "2021-10-29T10:29:24.95324974-07:00"
+    dependencies:
+    - condition: cava-realtime.enabled
+      name: cava-realtime
+      repository: https://cormorack.github.io/cava-realtime
+      version: 0.1.1
+    description: A Helm chart for Kubernetes
+    digest: dbc9637fdb617ec7a1889b3fec260f9b4b873efea5835be89ae1c32d3b8807f1
+    icon: https://interactiveoceans.washington.edu/wp-content/uploads/2018/12/interactive-oceans-logo-symbol-only_sm-150x150.png
+    name: cava-realtime-client
+    type: application
+    urls:
+    - https://cormorack.github.io/cava-realtime-client/cava-realtime-client-0.1.0.tgz
+    version: 0.1.0
+generated: "2021-10-29T10:29:24.944233449-07:00"
