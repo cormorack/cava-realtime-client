@@ -31,11 +31,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-@Path("messages")
+@Path("instrument")
 public class RestService {
 
     private final KafkaStreams streams;
-    private final String storeName;
+    private final String raw = "__raw";
     private HostInfo hostInfo;
     private Server jettyServer;
     private final Client client = ClientBuilder.newBuilder().register(JacksonFeature.class).build();
@@ -43,13 +43,11 @@ public class RestService {
     /**
      *
      * @param streams
-     * @param storeName
      * @param hostName
      * @param port
      */
-    public RestService(final KafkaStreams streams, final String storeName, final String hostName, final int port) {
+    public RestService(final KafkaStreams streams, final String hostName, final int port) {
         this.streams = streams;
-        this.storeName = storeName;
         this.hostInfo = new HostInfo(hostName, port);
     }
 
@@ -98,24 +96,27 @@ public class RestService {
     @Produces(MediaType.APPLICATION_JSON)
     public KeyValueBean valueByKey(@PathParam("key") final String key, @Context UriInfo uriInfo) throws InterruptedException {
 
-        System.out.println("key is " + key);
+        //System.out.println("key is " + key);
 
-        final StreamsMetadata metadata = streams.metadataForKey(storeName, key, Serdes.String().serializer());
+        String keyStore = key + raw;
 
-        //System.out.println("metadata is " + metadata.toString());
+        final StreamsMetadata metadata = streams.metadataForKey(keyStore, key, Serdes.String().serializer());
 
         if (metadata == null) {
             throw new NotFoundException();
         }
 
-         if (metadata.hostInfo().host().toString() != "unavailable" &&
+        //System.out.println("metadata is " + metadata.toString());
+
+        if (metadata.hostInfo().host().toString() != "unavailable" &&
                  metadata.hostInfo().port() != -1 &&
                  !metadata.hostInfo().equals(hostInfo)) {
-             //System.out.println("metadata host is " + metadata.hostInfo() + "and hostInfo is " + hostInfo + "so, calling fetchValue ... ");
-             return fetchValue(metadata.hostInfo(), uriInfo.getPath(), new GenericType<KeyValueBean>() {});
-         }
 
-        final ReadOnlyKeyValueStore<String, String> store = waitUntilStoreIsQueryable(storeName, QueryableStoreTypes.keyValueStore(), streams);
+             return fetchValue(metadata.hostInfo(), uriInfo.getPath(), new GenericType<KeyValueBean>() {});
+        }
+
+        final ReadOnlyKeyValueStore<String, String> store = waitUntilStoreIsQueryable(keyStore, QueryableStoreTypes.keyValueStore(), streams);
+        //System.out.println("store is " + store.toString());
 
         if (store == null) {
             throw new NotFoundException();
@@ -129,7 +130,7 @@ public class RestService {
 
         String valueString = toJson(value);
 
-        System.out.println("value is " + valueString);
+        //System.out.println("value is " + valueString);
 
         return new KeyValueBean(key, valueString);
     }
@@ -188,10 +189,10 @@ public class RestService {
      * @return
      */
     @GET()
-    @Path("/processors")
+    @Path("/{key}/processors")
     @Produces(MediaType.APPLICATION_JSON)
-    public List<ProcessorMetadata> processors() {
-        return streams.allMetadataForStore(storeName)
+    public List<ProcessorMetadata> processors(@PathParam("key") final String key) {
+        return streams.allMetadataForStore(key + raw)
                 .stream()
                 .map(metadata -> new ProcessorMetadata(
                         metadata.host(),

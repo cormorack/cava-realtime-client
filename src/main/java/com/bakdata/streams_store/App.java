@@ -21,6 +21,7 @@ import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.*;
+import java.util.concurrent.ExecutionException;
 
 import static net.sourceforge.argparse4j.impl.Arguments.store;
 
@@ -29,15 +30,11 @@ public class App {
     public static void main(String[] args) throws Exception {
         ArgumentParser parser = argParser();
         Properties props = new Properties();
-
-        String topicName = null;
         String hostName = null;
         Integer port = null;
-        String storeName = "key-value-store";
 
         try {
             Namespace res = parser.parseArgs(args);
-            topicName = res.getString("topic");
             hostName = res.getString("hostname");
             port = res.getInt("port");
             String applicationId = res.getString("applicationId");
@@ -79,26 +76,15 @@ public class App {
 
         AdminClient adminClient = AdminClient.create(props);
 
-        for (TopicListing topicListing : adminClient.listTopics().listings().get()) {
-            System.out.println("Topics are " + topicListing.name());
-        }
-
         final StreamsBuilder builder = new StreamsBuilder();
 
-        KeyValueBytesStoreSupplier stateStore = Stores.inMemoryKeyValueStore(storeName);
-
-        KTable<String, String> table = builder.table(
-            topicName,
-            Materialized.<String, String>as(stateStore)
-                .withKeySerde(Serdes.String())
-                .withValueSerde(Serdes.String())
-        );
+        buildIt(builder, adminClient);
 
         final Topology topology = builder.build();
 
         final KafkaStreams streams = new KafkaStreams(topology, props);
 
-        final RestService restService = new RestService(streams, storeName, hostName, port);
+        final RestService restService = new RestService(streams, hostName, port);
 
         restService.start();
 
@@ -112,18 +98,33 @@ public class App {
         streams.start();
     }
 
+    private static StreamsBuilder buildIt(
+            StreamsBuilder builder,
+            AdminClient adminClient) throws ExecutionException, InterruptedException {
+
+        for (TopicListing topicListing : adminClient.listTopics().listings().get()) {
+
+            //System.out.println("Topics are " + topicListing.name());
+
+            String name = topicListing.name();
+
+            KeyValueBytesStoreSupplier stateStore = Stores.inMemoryKeyValueStore(name);
+
+            KTable<String, String> table = builder.table(
+                    name,
+                    Materialized.<String, String>as(stateStore)
+                            .withKeySerde(Serdes.String())
+                            .withValueSerde(Serdes.String())
+            );
+        }
+        return builder;
+    }
+
     private static ArgumentParser argParser() {
         ArgumentParser parser = ArgumentParsers
                 .newFor("streams-processor").build()
                 .defaultHelp(true)
                 .description("This Kafka Streams application is used to interactively query values from Kafka topics");
-
-        parser.addArgument("--topic")
-                .action(store())
-                .required(true)
-                .type(String.class)
-                .metavar("TOPIC")
-                .help("process messages from this topic");
 
         parser.addArgument("--streams-props")
                 .nargs("+")
