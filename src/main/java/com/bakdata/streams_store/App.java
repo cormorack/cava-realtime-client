@@ -98,6 +98,7 @@ public class App {
         }));
 
         streams.start();
+        consumer.close();
     }
 
     private static StreamsBuilder buildIt(
@@ -107,7 +108,11 @@ public class App {
         Map<String, List<PartitionInfo>> topics = consumer.listTopics();
         Set<String> topicNames = topics.keySet();
 
-        for(String name : topicNames) {
+        for (String name : topicNames) {
+
+            if (name.contains("changelog") || name.contains("consumer_offsets")) {
+                continue;
+            }
 
             KeyValueBytesStoreSupplier stateStore = Stores.inMemoryKeyValueStore(name);
 
