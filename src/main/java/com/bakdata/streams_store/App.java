@@ -5,9 +5,10 @@ import net.sourceforge.argparse4j.inf.ArgumentParser;
 import net.sourceforge.argparse4j.inf.ArgumentParserException;
 import net.sourceforge.argparse4j.inf.Namespace;
 
-import org.apache.kafka.clients.admin.AdminClient;
-import org.apache.kafka.clients.admin.TopicListing;
+import org.apache.kafka.clients.consumer.KafkaConsumer;
+import org.apache.kafka.common.PartitionInfo;
 import org.apache.kafka.common.serialization.Serdes;
+import org.apache.kafka.common.serialization.StringDeserializer;
 import org.apache.kafka.streams.KafkaStreams;
 import org.apache.kafka.streams.StreamsBuilder;
 import org.apache.kafka.streams.StreamsConfig;
@@ -21,7 +22,6 @@ import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.*;
-import java.util.concurrent.ExecutionException;
 
 import static net.sourceforge.argparse4j.impl.Arguments.store;
 
@@ -64,6 +64,8 @@ public class App {
             props.put(StreamsConfig.APPLICATION_SERVER_CONFIG, hostName + ":" + port);
             props.put(StreamsConfig.DEFAULT_KEY_SERDE_CLASS_CONFIG, Serdes.String().getClass());
             props.put(StreamsConfig.DEFAULT_VALUE_SERDE_CLASS_CONFIG, Serdes.String().getClass());
+            props.put("key.deserializer", StringDeserializer.class.getName());
+            props.put("value.deserializer", StringDeserializer.class.getName());
         } catch (ArgumentParserException e) {
             if (args.length == 0) {
                 parser.printHelp();
@@ -74,11 +76,11 @@ public class App {
             }
         }
 
-        AdminClient adminClient = AdminClient.create(props);
+        KafkaConsumer<String, String> consumer = new KafkaConsumer<>(props);
 
         final StreamsBuilder builder = new StreamsBuilder();
 
-        buildIt(builder, adminClient);
+        buildIt(builder, consumer);
 
         final Topology topology = builder.build();
 
@@ -100,13 +102,12 @@ public class App {
 
     private static StreamsBuilder buildIt(
             StreamsBuilder builder,
-            AdminClient adminClient) throws ExecutionException, InterruptedException {
+            KafkaConsumer consumer) {
 
-        for (TopicListing topicListing : adminClient.listTopics().listings().get()) {
+        Map<String, List<PartitionInfo>> topics = consumer.listTopics();
+        Set<String> topicNames = topics.keySet();
 
-            //System.out.println("Topics are " + topicListing.name());
-
-            String name = topicListing.name();
+        for(String name : topicNames) {
 
             KeyValueBytesStoreSupplier stateStore = Stores.inMemoryKeyValueStore(name);
 
