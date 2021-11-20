@@ -31,7 +31,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-@Path("instrument")
+@Path("feed")
 public class RestService {
 
     private final KafkaStreams streams;

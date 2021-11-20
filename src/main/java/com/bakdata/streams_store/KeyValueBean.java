@@ -12,7 +12,7 @@ public class KeyValueBean {
   public KeyValueBean(final String key, final String value) {
     this.key = key;
     this.value = value;
-    System.out.println("kvBean is " + this.toString());
+    //System.out.println("kvBean is " + this.toString());
   }
 
   public String getKey() {

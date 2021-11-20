@@ -3,7 +3,7 @@
 # Declare variables to be passed into your templates.
 nameOverride: cava-realtime-client
 # fullnameOverride: cava-realtime-client
-path: /instrument
+path: /feed
 service:
   targetPort: 8081
   portName: http
