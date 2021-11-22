@@ -3,7 +3,7 @@
 # Declare variables to be passed into your templates.
 nameOverride: cava-realtime-client
 # fullnameOverride: cava-realtime-client
-path: /messages
+path: /feed
 service:
   targetPort: 8081
   portName: http
@@ -39,7 +39,6 @@ configmap:
   kafkaPort: ""
   replicas: 1
 arguments:
-  topics: ""
   appID: ""
 cava-realtime:
   enabled: true

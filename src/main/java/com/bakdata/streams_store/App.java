@@ -5,9 +5,10 @@ import net.sourceforge.argparse4j.inf.ArgumentParser;
 import net.sourceforge.argparse4j.inf.ArgumentParserException;
 import net.sourceforge.argparse4j.inf.Namespace;
 
-import org.apache.kafka.clients.admin.AdminClient;
-import org.apache.kafka.clients.admin.TopicListing;
+import org.apache.kafka.clients.consumer.KafkaConsumer;
+import org.apache.kafka.common.PartitionInfo;
 import org.apache.kafka.common.serialization.Serdes;
+import org.apache.kafka.common.serialization.StringDeserializer;
 import org.apache.kafka.streams.KafkaStreams;
 import org.apache.kafka.streams.StreamsBuilder;
 import org.apache.kafka.streams.StreamsConfig;
@@ -29,15 +30,11 @@ public class App {
     public static void main(String[] args) throws Exception {
         ArgumentParser parser = argParser();
         Properties props = new Properties();
-
-        String topicName = null;
         String hostName = null;
         Integer port = null;
-        String storeName = "key-value-store";
 
         try {
             Namespace res = parser.parseArgs(args);
-            topicName = res.getString("topic");
             hostName = res.getString("hostname");
             port = res.getInt("port");
             String applicationId = res.getString("applicationId");
@@ -67,6 +64,8 @@ public class App {
             props.put(StreamsConfig.APPLICATION_SERVER_CONFIG, hostName + ":" + port);
             props.put(StreamsConfig.DEFAULT_KEY_SERDE_CLASS_CONFIG, Serdes.String().getClass());
             props.put(StreamsConfig.DEFAULT_VALUE_SERDE_CLASS_CONFIG, Serdes.String().getClass());
+            props.put("key.deserializer", StringDeserializer.class.getName());
+            props.put("value.deserializer", StringDeserializer.class.getName());
         } catch (ArgumentParserException e) {
             if (args.length == 0) {
                 parser.printHelp();
@@ -77,28 +76,17 @@ public class App {
             }
         }
 
-        AdminClient adminClient = AdminClient.create(props);
-
-        for (TopicListing topicListing : adminClient.listTopics().listings().get()) {
-            System.out.println("Topics are " + topicListing.name());
-        }
+        KafkaConsumer<String, String> consumer = new KafkaConsumer<>(props);
 
         final StreamsBuilder builder = new StreamsBuilder();
 
-        KeyValueBytesStoreSupplier stateStore = Stores.inMemoryKeyValueStore(storeName);
-
-        KTable<String, String> table = builder.table(
-            topicName,
-            Materialized.<String, String>as(stateStore)
-                .withKeySerde(Serdes.String())
-                .withValueSerde(Serdes.String())
-        );
+        buildIt(builder, consumer);
 
         final Topology topology = builder.build();
 
         final KafkaStreams streams = new KafkaStreams(topology, props);
 
-        final RestService restService = new RestService(streams, storeName, hostName, port);
+        final RestService restService = new RestService(streams, hostName, port);
 
         restService.start();
 
@@ -110,6 +98,32 @@ public class App {
         }));
 
         streams.start();
+        consumer.close();
+    }
+
+    private static StreamsBuilder buildIt(
+            StreamsBuilder builder,
+            KafkaConsumer consumer) {
+
+        Map<String, List<PartitionInfo>> topics = consumer.listTopics();
+        Set<String> topicNames = topics.keySet();
+
+        for (String name : topicNames) {
+
+            if (name.contains("changelog") || name.contains("consumer_offsets")) {
+                continue;
+            }
+
+            KeyValueBytesStoreSupplier stateStore = Stores.inMemoryKeyValueStore(name);
+
+            KTable<String, String> table = builder.table(
+                    name,
+                    Materialized.<String, String>as(stateStore)
+                            .withKeySerde(Serdes.String())
+                            .withValueSerde(Serdes.String())
+            );
+        }
+        return builder;
     }
 
     private static ArgumentParser argParser() {
@@ -120,9 +134,10 @@ public class App {
 
         parser.addArgument("--topic")
                 .action(store())
-                .required(true)
+                .required(false)
                 .type(String.class)
                 .metavar("TOPIC")
+                .setDefault("RS03AXPS-SF03A-2A-CTDPFA302-streamed-ctdpf_sbe43_sample__raw")
                 .help("process messages from this topic");
 
         parser.addArgument("--streams-props")

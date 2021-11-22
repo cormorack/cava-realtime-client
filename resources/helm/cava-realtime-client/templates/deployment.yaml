@@ -43,8 +43,6 @@ spec:
           {{- end }}
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
           args:
-            - --topic
-            - {{ .Values.arguments.topics }}
             - --streams.config
             - /var/config/streams-processor.properties
             - --application-id
