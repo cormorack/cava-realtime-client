@@ -132,6 +132,14 @@ public class App {
                 .defaultHelp(true)
                 .description("This Kafka Streams application is used to interactively query values from Kafka topics");
 
+        parser.addArgument("--topic")
+                .action(store())
+                .required(false)
+                .type(String.class)
+                .metavar("TOPIC")
+                .setDefault("RS03AXPS-SF03A-2A-CTDPFA302-streamed-ctdpf_sbe43_sample__raw")
+                .help("process messages from this topic");
+
         parser.addArgument("--streams-props")
                 .nargs("+")
                 .required(false)
