@@ -39,6 +39,7 @@ public class RestService {
     private HostInfo hostInfo;
     private Server jettyServer;
     private final Client client = ClientBuilder.newBuilder().register(JacksonFeature.class).build();
+    private InMemoryCache inMemoryCache;
 
     /**
      *
@@ -49,6 +50,7 @@ public class RestService {
     public RestService(final KafkaStreams streams, final String hostName, final int port) {
         this.streams = streams;
         this.hostInfo = new HostInfo(hostName, port);
+        this.inMemoryCache = new InMemoryCache();
     }
 
     /**
@@ -96,19 +98,21 @@ public class RestService {
     @Produces(MediaType.APPLICATION_JSON)
     public KeyValueBean valueByKey(@PathParam("key") final String key, @Context UriInfo uriInfo) throws InterruptedException {
 
-        //System.out.println("key is " + key);
-
         String keyStore = key + raw;
+
+        boolean hasCache = inMemoryCache.get(key) != null;
 
         final StreamsMetadata metadata = streams.metadataForKey(keyStore, key, Serdes.String().serializer());
 
         if (metadata == null) {
-            throw new NotFoundException();
+            if (hasCache) {
+                return new KeyValueBean(key, (String) inMemoryCache.get(key));
+            } else {
+                throw new NotFoundException();
+            }
         }
 
-        //System.out.println("metadata is " + metadata.toString());
-
-        if (metadata.hostInfo().host().toString() != "unavailable" &&
+        if (metadata.hostInfo().host() != "unavailable" &&
                  metadata.hostInfo().port() != -1 &&
                  !metadata.hostInfo().equals(hostInfo)) {
 
@@ -116,10 +120,13 @@ public class RestService {
         }
 
         final ReadOnlyKeyValueStore<String, String> store = waitUntilStoreIsQueryable(keyStore, QueryableStoreTypes.keyValueStore(), streams);
-        //System.out.println("store is " + store.toString());
 
         if (store == null) {
-            throw new NotFoundException();
+            if (hasCache) {
+                return new KeyValueBean(key, (String) inMemoryCache.get(key));
+            } else {
+                throw new NotFoundException();
+            }
         }
 
         final String value = store.get(key);
@@ -130,7 +137,9 @@ public class RestService {
 
         String valueString = toJson(value);
 
-        //System.out.println("value is " + valueString);
+        inMemoryCache.remove(key);
+
+        inMemoryCache.add(key, valueString);
 
         return new KeyValueBean(key, valueString);
     }
