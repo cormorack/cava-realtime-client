@@ -102,6 +102,7 @@ public class RestService {
 
         boolean hasCache = inMemoryCache.get(key) != null;
 
+
         final StreamsMetadata metadata = streams.metadataForKey(keyStore, key, Serdes.String().serializer());
 
         if (metadata == null) {

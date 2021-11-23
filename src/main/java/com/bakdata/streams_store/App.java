@@ -6,7 +6,9 @@ import net.sourceforge.argparse4j.inf.ArgumentParserException;
 import net.sourceforge.argparse4j.inf.Namespace;
 
 import org.apache.kafka.clients.consumer.KafkaConsumer;
+import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.PartitionInfo;
+import org.apache.kafka.common.config.TopicConfig;
 import org.apache.kafka.common.serialization.Serdes;
 import org.apache.kafka.common.serialization.StringDeserializer;
 import org.apache.kafka.streams.KafkaStreams;
@@ -66,6 +68,8 @@ public class App {
             props.put(StreamsConfig.DEFAULT_VALUE_SERDE_CLASS_CONFIG, Serdes.String().getClass());
             props.put("key.deserializer", StringDeserializer.class.getName());
             props.put("value.deserializer", StringDeserializer.class.getName());
+            props.put(StreamsConfig.RETRIES_CONFIG, 10);
+            props.put(StreamsConfig.RETRY_BACKOFF_MS_CONFIG, 100);
         } catch (ArgumentParserException e) {
             if (args.length == 0) {
                 parser.printHelp();
@@ -85,6 +89,12 @@ public class App {
         final Topology topology = builder.build();
 
         final KafkaStreams streams = new KafkaStreams(topology, props);
+
+        streams.setUncaughtExceptionHandler((Thread thread, Throwable throwable) -> {
+
+            System.out.println("Uncaught Exception in thread " + thread.getName());
+            System.out.println("Exception is " + throwable.getMessage());
+        });
 
         final RestService restService = new RestService(streams, hostName, port);
 
