@@ -15,7 +15,7 @@ services:
     kafka-kv:
         build:
             context: ../..
-            dockerfile: ../../resources/docker/Dockerfile
+            dockerfile: resources/docker/Dockerfile
         image: cormorack/cava-realtime-client:latest
         ports:
           - 8081:8081
@@ -35,7 +35,9 @@ services:
         networks:
             - io2network
     redis-service:
-        image: redis:alpine3.13
+        image: bitnami/redis:6.0.12-debian-10-r3
+        environment:
+          - ALLOW_EMPTY_PASSWORD=yes
         ports:
           - 6379:6379
         expose:
