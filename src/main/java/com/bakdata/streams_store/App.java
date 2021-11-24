@@ -6,15 +6,14 @@ import net.sourceforge.argparse4j.inf.ArgumentParserException;
 import net.sourceforge.argparse4j.inf.Namespace;
 
 import org.apache.kafka.clients.consumer.KafkaConsumer;
-import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.PartitionInfo;
-import org.apache.kafka.common.config.TopicConfig;
 import org.apache.kafka.common.serialization.Serdes;
 import org.apache.kafka.common.serialization.StringDeserializer;
 import org.apache.kafka.streams.KafkaStreams;
 import org.apache.kafka.streams.StreamsBuilder;
 import org.apache.kafka.streams.StreamsConfig;
 import org.apache.kafka.streams.Topology;
+//import org.apache.kafka.streams.errors.StreamsUncaughtExceptionHandler;
 import org.apache.kafka.streams.kstream.KTable;
 import org.apache.kafka.streams.kstream.Materialized;
 import org.apache.kafka.streams.state.KeyValueBytesStoreSupplier;
@@ -95,6 +94,11 @@ public class App {
             System.out.println("Uncaught Exception in thread " + thread.getName());
             System.out.println("Exception is " + throwable.getMessage());
         });
+        /*streams.setUncaughtExceptionHandler(ex -> {
+            System.out.println("Kafka-Streams uncaught exception occurred. Stream will be replaced with new thread");
+            System.out.println("Exception is " + ex.getMessage());
+            return StreamsUncaughtExceptionHandler.StreamThreadExceptionResponse.REPLACE_THREAD;
+        });*/
 
         final RestService restService = new RestService(streams, hostName, port);
 
