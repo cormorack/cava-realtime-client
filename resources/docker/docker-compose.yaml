@@ -23,6 +23,7 @@ services:
           - kafka
         depends_on:
           - cr-producer
+          - redis-service
         command:
           - --streams-props
           - bootstrap.servers=kafka:29092
