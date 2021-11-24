@@ -13,6 +13,7 @@ import org.apache.kafka.streams.KafkaStreams;
 import org.apache.kafka.streams.StreamsBuilder;
 import org.apache.kafka.streams.StreamsConfig;
 import org.apache.kafka.streams.Topology;
+//import org.apache.kafka.streams.errors.StreamsUncaughtExceptionHandler;
 import org.apache.kafka.streams.kstream.KTable;
 import org.apache.kafka.streams.kstream.Materialized;
 import org.apache.kafka.streams.state.KeyValueBytesStoreSupplier;
@@ -66,6 +67,8 @@ public class App {
             props.put(StreamsConfig.DEFAULT_VALUE_SERDE_CLASS_CONFIG, Serdes.String().getClass());
             props.put("key.deserializer", StringDeserializer.class.getName());
             props.put("value.deserializer", StringDeserializer.class.getName());
+            props.put(StreamsConfig.RETRIES_CONFIG, 10);
+            props.put(StreamsConfig.RETRY_BACKOFF_MS_CONFIG, 100);
         } catch (ArgumentParserException e) {
             if (args.length == 0) {
                 parser.printHelp();
@@ -85,6 +88,17 @@ public class App {
         final Topology topology = builder.build();
 
         final KafkaStreams streams = new KafkaStreams(topology, props);
+
+        streams.setUncaughtExceptionHandler((Thread thread, Throwable throwable) -> {
+
+            System.out.println("Uncaught Exception in thread " + thread.getName());
+            System.out.println("Exception is " + throwable.getMessage());
+        });
+        /*streams.setUncaughtExceptionHandler(ex -> {
+            System.out.println("Kafka-Streams uncaught exception occurred. Stream will be replaced with new thread");
+            System.out.println("Exception is " + ex.getMessage());
+            return StreamsUncaughtExceptionHandler.StreamThreadExceptionResponse.REPLACE_THREAD;
+        });*/
 
         final RestService restService = new RestService(streams, hostName, port);
 

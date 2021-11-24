@@ -12,6 +12,7 @@
 
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+<!--        <kafka.version>2.8.0</kafka.version>-->
         <kafka.version>2.0.0</kafka.version>
         <slf4j.version>1.7.7</slf4j.version>
     </properties>
@@ -120,6 +121,17 @@
             <artifactId>jackson-annotations</artifactId>
             <version>2.9.0</version>
         </dependency>
+<!--        <dependency>-->
+<!--            <groupId>com.fasterxml.jackson.core</groupId>-->
+<!--            &lt;!&ndash;<artifactId>jackson-core</artifactId>&ndash;&gt;-->
+<!--            <artifactId>jackson-annotations</artifactId>-->
+<!--            <version>2.12.1</version>-->
+<!--        </dependency>-->
+<!--        <dependency>-->
+<!--            <groupId>com.fasterxml.jackson.core</groupId>-->
+<!--            <artifactId>jackson-core</artifactId>-->
+<!--            <version>2.12.1</version>-->
+<!--        </dependency>-->
         <!-- https://mvnrepository.com/artifact/org.json/json -->
         <dependency>
             <groupId>org.json</groupId>
