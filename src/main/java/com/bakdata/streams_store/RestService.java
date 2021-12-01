@@ -30,6 +30,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+import redis.clients.jedis.Jedis;
 
 @Path("feed")
 public class RestService {
@@ -40,6 +41,8 @@ public class RestService {
     private Server jettyServer;
     private final Client client = ClientBuilder.newBuilder().register(JacksonFeature.class).build();
     private InMemoryCache inMemoryCache;
+    static RedisClient redisClient;
+    //private static Jedis jedis;
 
     /**
      *
@@ -51,6 +54,7 @@ public class RestService {
         this.streams = streams;
         this.hostInfo = new HostInfo(hostName, port);
         this.inMemoryCache = new InMemoryCache();
+        redisClient = RedisClient.getInstance(6379);
     }
 
     /**
@@ -84,6 +88,7 @@ public class RestService {
         if (jettyServer != null) {
             jettyServer.stop();
         }
+        redisClient.destroyInstance();
     }
 
     /**
@@ -100,14 +105,15 @@ public class RestService {
 
         String keyStore = key + raw;
 
-        boolean hasCache = inMemoryCache.get(key) != null;
-
+        //boolean hasCache = inMemoryCache.get(key) != null;
+        boolean hasCache = redisClient.get(key) != null;
 
         final StreamsMetadata metadata = streams.metadataForKey(keyStore, key, Serdes.String().serializer());
 
         if (metadata == null) {
             if (hasCache) {
-                return new KeyValueBean(key, (String) inMemoryCache.get(key));
+                //return new KeyValueBean(key, (String) inMemoryCache.get(key));
+                return new KeyValueBean(key, redisClient.get(key));
             } else {
                 throw new NotFoundException();
             }
@@ -124,7 +130,8 @@ public class RestService {
 
         if (store == null) {
             if (hasCache) {
-                return new KeyValueBean(key, (String) inMemoryCache.get(key));
+                //return new KeyValueBean(key, (String) inMemoryCache.get(key));
+                return new KeyValueBean(key, redisClient.get(key));
             } else {
                 throw new NotFoundException();
             }
@@ -138,9 +145,13 @@ public class RestService {
 
         String valueString = toJson(value);
 
-        inMemoryCache.remove(key);
+        //inMemoryCache.remove(key);
 
-        inMemoryCache.add(key, valueString);
+        //inMemoryCache.add(key, valueString);
+
+        redisClient.remove(key, valueString);
+
+        redisClient.add(key, valueString);
 
         return new KeyValueBean(key, valueString);
     }
