@@ -33,6 +33,7 @@ public class App {
         Properties props = new Properties();
         String hostName = null;
         Integer port = null;
+        boolean useRedis = false;
 
         try {
             Namespace res = parser.parseArgs(args);
@@ -41,6 +42,7 @@ public class App {
             String applicationId = res.getString("applicationId");
             List<String> streamsProps = res.getList("streamsConfig");
             String streamsConfig = res.getString("streamsConfigFile");
+            useRedis = res.getBoolean("useRedis");
 
             if (streamsProps == null && streamsConfig == null) {
                 throw new ArgumentParserException("Either --streams-props or --streams.config must be specified.", parser);
@@ -100,7 +102,7 @@ public class App {
             return StreamsUncaughtExceptionHandler.StreamThreadExceptionResponse.REPLACE_THREAD;
         });*/
 
-        final RestService restService = new RestService(streams, hostName, port);
+        final RestService restService = new RestService(streams, hostName, port, useRedis);
 
         restService.start();
 
@@ -195,6 +197,13 @@ public class App {
                 .metavar("PORT")
                 .setDefault(8081)
                 .help("The TCP Port for the HTTP REST Service");
+        parser.addArgument("--useRedis")
+                .action(store())
+                .required(false)
+                .type(Boolean.class)
+                .metavar("USE-REDIS")
+                .setDefault(false)
+                .help("Whether or not to use redis");
 
         return parser;
     }
