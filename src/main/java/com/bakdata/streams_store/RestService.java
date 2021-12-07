@@ -172,8 +172,8 @@ public class RestService {
             try {
                 return streams.store(storeName, queryableStoreType);
             } catch (InvalidStateStoreException ignored) {
-                // store not yet ready for querying
-                Thread.sleep(100);
+                System.out.println("The Store not yet ready for querying!");
+                Thread.sleep(30000);
             }
         }
     }
