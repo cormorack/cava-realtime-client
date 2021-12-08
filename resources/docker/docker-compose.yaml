@@ -32,6 +32,8 @@ services:
           - my-streams-processor
           - --hostname
           - localhost
+          - --useRedis
+          - "true"
         networks:
             - io2network
     redis-service:

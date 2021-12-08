@@ -40,6 +40,9 @@ public class RestService {
     private Server jettyServer;
     private final Client client = ClientBuilder.newBuilder().register(JacksonFeature.class).build();
     private InMemoryCache inMemoryCache;
+    private static RedisClient redisClient;
+    private boolean useRedis = false;
+
 
     /**
      *
@@ -47,10 +50,12 @@ public class RestService {
      * @param hostName
      * @param port
      */
-    public RestService(final KafkaStreams streams, final String hostName, final int port) {
+    public RestService(final KafkaStreams streams, final String hostName, final int port, boolean useCache) {
         this.streams = streams;
         this.hostInfo = new HostInfo(hostName, port);
         this.inMemoryCache = new InMemoryCache();
+        redisClient = RedisClient.getInstance(6379);
+        useRedis = useCache;
     }
 
     /**
@@ -84,6 +89,7 @@ public class RestService {
         if (jettyServer != null) {
             jettyServer.stop();
         }
+        redisClient.destroyInstance();
     }
 
     /**
@@ -100,14 +106,15 @@ public class RestService {
 
         String keyStore = key + raw;
 
-        boolean hasCache = inMemoryCache.get(key) != null;
+        boolean hasCache = useRedis ? redisClient.get(key) != null : inMemoryCache.get(key) != null;
 
+        String cacheValue = useRedis ? redisClient.get(key) : (String) inMemoryCache.get(key);
 
         final StreamsMetadata metadata = streams.metadataForKey(keyStore, key, Serdes.String().serializer());
 
         if (metadata == null) {
             if (hasCache) {
-                return new KeyValueBean(key, (String) inMemoryCache.get(key));
+                return new KeyValueBean(key, cacheValue);
             } else {
                 throw new NotFoundException();
             }
@@ -124,7 +131,7 @@ public class RestService {
 
         if (store == null) {
             if (hasCache) {
-                return new KeyValueBean(key, (String) inMemoryCache.get(key));
+                return new KeyValueBean(key, cacheValue);
             } else {
                 throw new NotFoundException();
             }
@@ -138,10 +145,14 @@ public class RestService {
 
         String valueString = toJson(value);
 
-        inMemoryCache.remove(key);
-
-        inMemoryCache.add(key, valueString);
-
+        if (useRedis) {
+            redisClient.remove(key, valueString);
+            redisClient.add(key, valueString);
+        }
+        else {
+            inMemoryCache.remove(key);
+            inMemoryCache.add(key, valueString);
+        }
         return new KeyValueBean(key, valueString);
     }
 
@@ -161,8 +172,8 @@ public class RestService {
             try {
                 return streams.store(storeName, queryableStoreType);
             } catch (InvalidStateStoreException ignored) {
-                // store not yet ready for querying
-                Thread.sleep(100);
+                System.out.println("The Store not yet ready for querying!");
+                Thread.sleep(30000);
             }
         }
     }
@@ -336,5 +347,8 @@ public class RestService {
                 .replaceAll("\"", "");
         return newValue;
     }
+
 }
+
+
 
