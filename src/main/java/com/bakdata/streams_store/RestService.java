@@ -2,7 +2,10 @@ package com.bakdata.streams_store;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import io.swagger.jaxrs.config.DefaultJaxrsConfig;
+import io.swagger.v3.jaxrs2.integration.OpenApiServlet;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -18,7 +21,6 @@ import org.eclipse.jetty.servlet.ServletContextHandler;
 import org.eclipse.jetty.servlet.ServletHolder;
 import org.glassfish.jersey.jackson.JacksonFeature;
 import org.glassfish.jersey.server.ResourceConfig;
-import org.glassfish.jersey.server.ServerProperties;
 import org.glassfish.jersey.servlet.ServletContainer;
 import org.json.JSONObject;
 import javax.ws.rs.*;
@@ -32,14 +34,11 @@ import java.io.IOException;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.ServiceLoader;
 import java.util.stream.Collectors;
-import io.swagger.annotations.Api;
-import io.swagger.annotations.ApiOperation;
-import io.swagger.annotations.ApiResponse;
-import io.swagger.annotations.ApiResponses;
+import io.swagger.v3.oas.annotations.*;
 
 @Path("feed")
-@Api(value = "/feed", description = "Data feed from OOI Instruments", tags = "feed")
 @Produces({MediaType.APPLICATION_JSON, MediaType.APPLICATION_XML})
 public class RestService {
 
@@ -84,24 +83,24 @@ public class RestService {
 
         ServletContainer sc = new ServletContainer(rc);
         ServletHolder holder = new ServletHolder(sc);
-        context.addServlet(holder, "/*");
+        context.addServlet(holder, "/data/*");
 
-        // Setup API resources
-        ServletHolder apiServlet = context.addServlet(ServletContainer.class, "/api/*");
-        apiServlet.setInitOrder(0);
-        apiServlet.setInitParameter(ServerProperties.PROVIDER_PACKAGES,"com.bakdata.streams_store;io.swagger.jaxrs.json;io.swagger.jaxrs.listing");
+        // Setup API resources to be intercepted by Jersey
+        ServletHolder jersey = context.addServlet(ServletContainer.class, "/api/*");
+        jersey.setInitOrder(1);
+        jersey.setInitParameter("jersey.config.server.provider.packages", "com.bakdata.streams_store; io.swagger.v3.jaxrs2.integration.resources");
 
-        // Setup Swagger servlet
-        ServletHolder swaggerServlet = context.addServlet(DefaultJaxrsConfig.class, "/swagger-core");
-        swaggerServlet.setInitOrder(1);
-        swaggerServlet.setInitParameter("api.version", "2.0.0");
-        swaggerServlet.setInitParameter("swagger.api.basepath","http://localhost:8081/api/");
+        // Expose API definition independently into yaml/json
+        ServletHolder openApi = context.addServlet(OpenApiServlet.class, "/openapi/*");
+        openApi.setInitOrder(2);
+        openApi.setInitParameter("openApi.configuration.resourcePackages", "com.bakdata.streams_store");
 
         // Setup Swagger-UI static resources
-        String resourceBasePath = App.class.getResource("/swagger-ui").toExternalForm();
+        String resourceBasePath;
+        resourceBasePath = ServiceLoader.class.getResource("/webapp").toExternalForm();
         context.setWelcomeFiles(new String[] {"index.html"});
         context.setResourceBase(resourceBasePath);
-        context.addServlet(new ServletHolder(new DefaultServlet()), "/swagger-ui/*");
+        context.addServlet(new ServletHolder(new DefaultServlet()), "/*");
 
         jettyServer.start();
     }
@@ -127,14 +126,14 @@ public class RestService {
     @GET
     @Path("/{key}")
     @Produces(MediaType.APPLICATION_JSON)
-    @ApiOperation(value = "Get instrument data by ID",
-            notes = "Returns a string of instrument data values",
-            response = String.class
-    )
-    @ApiResponses(value = { @ApiResponse(code = 200, message = "message"),
-            @ApiResponse(code = 400, message = "Invalid ID supplied"),
-            @ApiResponse(code = 404, message = "instrument not found") }
-    )
+    @Operation(summary = "Api", description = "Gets instrument data by key")
+    @ApiResponse(content = @Content(mediaType = "application/json"))
+    @ApiResponse(responseCode = "200", description = "Ok")
+    @ApiResponse(responseCode = "400", description = "Bad Request")
+    @ApiResponse(responseCode = "404", description = "Error")
+    @ApiResponse(responseCode = "500", description = "Internal Server Error")
+    @ApiResponse(responseCode = "503", description = "Service Unavailable")
+    @Tag(name = "Api")
     public KeyValueBean valueByKey(@PathParam("key") final String key, @Context UriInfo uriInfo) throws InterruptedException {
 
         String keyStore = key + raw;
@@ -245,14 +244,6 @@ public class RestService {
     @GET()
     @Path("/{key}/processors")
     @Produces(MediaType.APPLICATION_JSON)
-    @ApiOperation(value = "Get instrument processor metadata by ID",
-            notes = "Returns a string of instrument data values",
-            response = String.class
-    )
-    @ApiResponses(value = { @ApiResponse(code = 200, message = "message"),
-            @ApiResponse(code = 400, message = "Invalid ID supplied"),
-            @ApiResponse(code = 404, message = "instrument not found") }
-    )
     public List<ProcessorMetadata> processors(@PathParam("key") final String key) {
         return streams.allMetadataForStore(key + raw)
                 .stream()
@@ -269,11 +260,6 @@ public class RestService {
     @GET()
     @Path("/status")
     @Produces(MediaType.APPLICATION_JSON)
-    @ApiOperation(value = "Get app status",
-            notes = "Returns a string regarding status",
-            response = String.class
-    )
-    @ApiResponses(value = { @ApiResponse(code = 200, message = "message")})
     public String status() {
 
         return "App is up!";

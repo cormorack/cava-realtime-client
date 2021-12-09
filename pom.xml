@@ -62,29 +62,6 @@
                     </execution>
                 </executions>
             </plugin>
-            <!-- Load the Swagger-UI components into the src/main/webapp/ directory to enable
-            viewing/testing of the API routes. Accessible at http://<host>:<port>/swagger. -->
-            <plugin>
-                <artifactId>maven-resources-plugin</artifactId>
-                <version>3.1.0</version>
-                <executions>
-                    <execution>
-                        <id>copy-resources</id>
-                        <phase>initialize</phase>
-                        <goals>
-                            <goal>copy-resources</goal>
-                        </goals>
-                        <configuration>
-                            <outputDirectory>${basedir}/src/main/resources/webapp</outputDirectory>
-                            <resources>
-                                <resource>
-                                    <directory>${project.build.directory}/swagger-ui-2.1.1/dist</directory>
-                                </resource>
-                            </resources>
-                        </configuration>
-                    </execution>
-                </executions>
-            </plugin>
         </plugins>
     </build>
 
@@ -141,25 +118,14 @@
         </dependency>
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
-            <artifactId>jackson-core</artifactId>
-            <version>2.10.1</version>
+            <artifactId>jackson-annotations</artifactId>
+            <version>2.12.1</version>
         </dependency>
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
-            <artifactId>jackson-annotations</artifactId>
-            <version>2.10.1</version>
+            <artifactId>jackson-core</artifactId>
+            <version>2.12.1</version>
         </dependency>
-<!--        <dependency>-->
-<!--            <groupId>com.fasterxml.jackson.core</groupId>-->
-<!--            &lt;!&ndash;<artifactId>jackson-core</artifactId>&ndash;&gt;-->
-<!--            <artifactId>jackson-annotations</artifactId>-->
-<!--            <version>2.12.1</version>-->
-<!--        </dependency>-->
-<!--        <dependency>-->
-<!--            <groupId>com.fasterxml.jackson.core</groupId>-->
-<!--            <artifactId>jackson-core</artifactId>-->
-<!--            <version>2.12.1</version>-->
-<!--        </dependency>-->
         <!-- https://mvnrepository.com/artifact/org.json/json -->
         <dependency>
             <groupId>org.json</groupId>
@@ -171,25 +137,32 @@
             <artifactId>jedis</artifactId>
             <version>3.7.0</version>
         </dependency>
+        <!-- https://mvnrepository.com/artifact/io.swagger.core.v3/swagger-jaxrs2 -->
         <dependency>
-            <groupId>io.swagger</groupId>
-            <artifactId>swagger-jaxrs</artifactId>
-            <version>1.6.1</version>
+            <groupId>io.swagger.core.v3</groupId>
+            <artifactId>swagger-jaxrs2</artifactId>
+            <version>2.1.11</version>
         </dependency>
+        <!-- https://mvnrepository.com/artifact/io.swagger.core.v3/swagger-annotations -->
         <dependency>
-            <groupId>io.swagger</groupId>
-            <artifactId>swagger-core</artifactId>
-            <version>1.6.1</version>
-        </dependency>
-        <dependency>
-            <groupId>io.swagger</groupId>
-            <artifactId>swagger-models</artifactId>
-            <version>1.6.1</version>
-        </dependency>
-        <dependency>
-            <groupId>io.swagger</groupId>
+            <groupId>io.swagger.core.v3</groupId>
             <artifactId>swagger-annotations</artifactId>
-            <version>1.6.1</version>
+            <version>2.1.11</version>
+        </dependency>
+        <dependency>
+            <groupId>io.swagger.core.v3</groupId>
+            <artifactId>swagger-models</artifactId>
+            <version>2.1.11</version>
+        </dependency>
+        <dependency>
+            <groupId>io.swagger.core.v3</groupId>
+            <artifactId>swagger-annotations</artifactId>
+            <version>2.1.11</version>
+        </dependency>
+        <dependency>
+            <groupId>io.swagger.core.v3</groupId>
+            <artifactId>swagger-jaxrs2-servlet-initializer</artifactId>
+            <version>2.1.11</version>
         </dependency>
         <!-- Lombok -->
         <dependency>
@@ -198,10 +171,5 @@
             <version>1.18.0</version>
             <scope>provided</scope>
         </dependency>
-<!--        <dependency>-->
-<!--            <groupId>com.vaadin.external.google</groupId>-->
-<!--            <artifactId>android-json</artifactId>-->
-<!--            <version>20080701</version>-->
-<!--        </dependency>-->
     </dependencies>
 </project>
