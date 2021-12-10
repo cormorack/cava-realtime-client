@@ -3,6 +3,7 @@ package com.bakdata.streams_store;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.swagger.v3.jaxrs2.integration.OpenApiServlet;
+import io.swagger.v3.oas.annotations.info.Info;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -38,7 +39,14 @@ import java.util.ServiceLoader;
 import java.util.stream.Collectors;
 import io.swagger.v3.oas.annotations.*;
 
-@Path("feed")
+@OpenAPIDefinition(
+        info = @Info(
+                title = "Realtime Client API",
+                version = "0.1",
+                description = "API for OOI Live Data"
+        )
+)
+@Path("")
 @Produces({MediaType.APPLICATION_JSON, MediaType.APPLICATION_XML})
 public class RestService {
 
@@ -83,7 +91,7 @@ public class RestService {
 
         ServletContainer sc = new ServletContainer(rc);
         ServletHolder holder = new ServletHolder(sc);
-        context.addServlet(holder, "/data/*");
+        context.addServlet(holder, "/feed/*");
 
         // Setup API resources to be intercepted by Jersey
         ServletHolder jersey = context.addServlet(ServletContainer.class, "/api/*");
@@ -126,15 +134,20 @@ public class RestService {
     @GET
     @Path("/{key}")
     @Produces(MediaType.APPLICATION_JSON)
-    @Operation(summary = "Api", description = "Gets instrument data by key")
+    @Operation(summary = "OOI Instrument Data", description = "Gets instrument data by key")
     @ApiResponse(content = @Content(mediaType = "application/json"))
     @ApiResponse(responseCode = "200", description = "Ok")
     @ApiResponse(responseCode = "400", description = "Bad Request")
     @ApiResponse(responseCode = "404", description = "Error")
     @ApiResponse(responseCode = "500", description = "Internal Server Error")
     @ApiResponse(responseCode = "503", description = "Service Unavailable")
-    @Tag(name = "Api")
-    public KeyValueBean valueByKey(@PathParam("key") final String key, @Context UriInfo uriInfo) throws InterruptedException {
+    @Tag(name = "valueByKey")
+    public KeyValueBean valueByKey(
+            @PathParam("key")
+            @Parameter(description = "The data key", required = true)
+            //@QueryParam("key")
+            final String key,
+            @Context UriInfo uriInfo) throws InterruptedException {
 
         String keyStore = key + raw;
 
@@ -244,6 +257,7 @@ public class RestService {
     @GET()
     @Path("/{key}/processors")
     @Produces(MediaType.APPLICATION_JSON)
+    @Hidden
     public List<ProcessorMetadata> processors(@PathParam("key") final String key) {
         return streams.allMetadataForStore(key + raw)
                 .stream()
@@ -260,6 +274,7 @@ public class RestService {
     @GET()
     @Path("/status")
     @Produces(MediaType.APPLICATION_JSON)
+    @Hidden
     public String status() {
 
         return "App is up!";
