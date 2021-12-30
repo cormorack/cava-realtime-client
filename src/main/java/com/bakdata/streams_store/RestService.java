@@ -2,6 +2,11 @@ package com.bakdata.streams_store;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.swagger.v3.jaxrs2.integration.OpenApiServlet;
+import io.swagger.v3.oas.annotations.info.Info;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -12,6 +17,7 @@ import org.apache.kafka.streams.KafkaStreams;
 import org.apache.kafka.streams.errors.InvalidStateStoreException;
 import org.apache.kafka.streams.state.*;
 import org.eclipse.jetty.server.Server;
+import org.eclipse.jetty.servlet.DefaultServlet;
 import org.eclipse.jetty.servlet.ServletContextHandler;
 import org.eclipse.jetty.servlet.ServletHolder;
 import org.glassfish.jersey.jackson.JacksonFeature;
@@ -29,9 +35,19 @@ import java.io.IOException;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.ServiceLoader;
 import java.util.stream.Collectors;
+import io.swagger.v3.oas.annotations.*;
 
-@Path("feed")
+@OpenAPIDefinition(
+        info = @Info(
+                title = "Realtime Client API",
+                version = "0.1",
+                description = "API for OOI Live Data"
+        )
+)
+@Path("")
+@Produces({MediaType.APPLICATION_JSON, MediaType.APPLICATION_XML})
 public class RestService {
 
     private final KafkaStreams streams;
@@ -42,7 +58,6 @@ public class RestService {
     private InMemoryCache inMemoryCache;
     private static RedisClient redisClient;
     private boolean useRedis = false;
-
 
     /**
      *
@@ -63,8 +78,9 @@ public class RestService {
      * @throws Exception
      */
     public void start() throws Exception {
+
         ServletContextHandler context = new ServletContextHandler(ServletContextHandler.SESSIONS);
-        context.setContextPath("/");
+        context.setContextPath("/feed");
 
         jettyServer = new Server(hostInfo.port());
         jettyServer.setHandler(context);
@@ -77,6 +93,26 @@ public class RestService {
         ServletContainer sc = new ServletContainer(rc);
         ServletHolder holder = new ServletHolder(sc);
         context.addServlet(holder, "/*");
+
+        // Setup API resources to be intercepted by Jersey
+        ServletHolder jersey = context.addServlet(ServletContainer.class, "/api/*");
+        jersey.setInitOrder(1);
+        jersey.setInitParameter("jersey.config.server.provider.packages", "com.bakdata.streams_store; io.swagger.v3.jaxrs2.integration.resources");
+
+        // Expose API definition independently into yaml/json
+        ServletHolder openApi = context.addServlet(OpenApiServlet.class, "/openapi/*");
+        openApi.setInitOrder(2);
+        openApi.setInitParameter("openApi.configuration.resourcePackages", "com.bakdata.streams_store");
+
+        // Setup Swagger-UI static resources
+        String resourceBasePath;
+        resourceBasePath = ServiceLoader.class.getResource("/webapp").toExternalForm();
+        ServletHolder holderPwd = new ServletHolder("static-home", DefaultServlet.class);
+        holderPwd.setInitParameter("resourceBase", resourceBasePath);
+        holderPwd.setInitParameter("dirAllowed","true");
+        holderPwd.setInitParameter("pathInfoOnly","true");
+        holderPwd.setInitOrder(3);
+        context.addServlet(holderPwd,"/docs/*");
 
         jettyServer.start();
     }
@@ -93,7 +129,7 @@ public class RestService {
     }
 
     /**
-     *
+     * Gets data from a Kafka Streams Store by key
      * @param key
      * @param uriInfo
      * @return
@@ -102,7 +138,19 @@ public class RestService {
     @GET
     @Path("/{key}")
     @Produces(MediaType.APPLICATION_JSON)
-    public KeyValueBean valueByKey(@PathParam("key") final String key, @Context UriInfo uriInfo) throws InterruptedException {
+    @Operation(summary = "OOI Instrument Data", description = "Gets instrument data by key")
+    @ApiResponse(content = @Content(mediaType = "application/json"))
+    @ApiResponse(responseCode = "200", description = "Ok")
+    @ApiResponse(responseCode = "400", description = "Bad Request")
+    @ApiResponse(responseCode = "404", description = "Error")
+    @ApiResponse(responseCode = "500", description = "Internal Server Error")
+    @ApiResponse(responseCode = "503", description = "Service Unavailable")
+    @Tag(name = "GetDataByKey")
+    public KeyValueBean valueByKey(
+            @PathParam("key")
+            @Parameter(description = "The data key", required = true)
+            final String key,
+            @Context UriInfo uriInfo) throws InterruptedException {
 
         String keyStore = key + raw;
 
@@ -212,6 +260,7 @@ public class RestService {
     @GET()
     @Path("/{key}/processors")
     @Produces(MediaType.APPLICATION_JSON)
+    @Hidden
     public List<ProcessorMetadata> processors(@PathParam("key") final String key) {
         return streams.allMetadataForStore(key + raw)
                 .stream()
@@ -228,6 +277,7 @@ public class RestService {
     @GET()
     @Path("/status")
     @Produces(MediaType.APPLICATION_JSON)
+    @Hidden
     public String status() {
 
         return "App is up!";
