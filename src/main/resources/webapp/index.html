@@ -32,13 +32,12 @@
 
   <body>
     <div id="swagger-ui"></div>
-
     <script src="./swagger-ui-bundle.js"> </script>
     <script src="./swagger-ui-standalone-preset.js"> </script>
     <script>
     window.onload = function() {
       // Begin Swagger UI call region
-      const context = location.origin + '/openapi/swagger.json'
+      const context = location.origin + '/feed/openapi/swagger.json'
       const ui = SwaggerUIBundle({
         url: context,
         dom_id: '#swagger-ui',

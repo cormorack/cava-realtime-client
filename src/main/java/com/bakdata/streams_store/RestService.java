@@ -78,8 +78,9 @@ public class RestService {
      * @throws Exception
      */
     public void start() throws Exception {
+        
         ServletContextHandler context = new ServletContextHandler(ServletContextHandler.SESSIONS);
-        context.setContextPath("/");
+        context.setContextPath("/feed");
 
         jettyServer = new Server(hostInfo.port());
         jettyServer.setHandler(context);
@@ -91,7 +92,7 @@ public class RestService {
 
         ServletContainer sc = new ServletContainer(rc);
         ServletHolder holder = new ServletHolder(sc);
-        context.addServlet(holder, "/feed/*");
+        context.addServlet(holder, "/*");
 
         // Setup API resources to be intercepted by Jersey
         ServletHolder jersey = context.addServlet(ServletContainer.class, "/api/*");
@@ -106,9 +107,12 @@ public class RestService {
         // Setup Swagger-UI static resources
         String resourceBasePath;
         resourceBasePath = ServiceLoader.class.getResource("/webapp").toExternalForm();
-        context.setWelcomeFiles(new String[] {"index.html"});
-        context.setResourceBase(resourceBasePath);
-        context.addServlet(new ServletHolder(new DefaultServlet()), "/*");
+        ServletHolder holderPwd = new ServletHolder("static-home", DefaultServlet.class);
+        holderPwd.setInitParameter("resourceBase", resourceBasePath);
+        holderPwd.setInitParameter("dirAllowed","true");
+        holderPwd.setInitParameter("pathInfoOnly","true");
+        holderPwd.setInitOrder(3);
+        context.addServlet(holderPwd,"/docs/*");
 
         jettyServer.start();
     }
@@ -145,7 +149,6 @@ public class RestService {
     public KeyValueBean valueByKey(
             @PathParam("key")
             @Parameter(description = "The data key", required = true)
-            //@QueryParam("key")
             final String key,
             @Context UriInfo uriInfo) throws InterruptedException {
 
