@@ -78,7 +78,7 @@ public class RestService {
      * @throws Exception
      */
     public void start() throws Exception {
-        
+
         ServletContextHandler context = new ServletContextHandler(ServletContextHandler.SESSIONS);
         context.setContextPath("/feed");
 
@@ -129,7 +129,7 @@ public class RestService {
     }
 
     /**
-     *
+     * Gets data from a Kafka Streams Store by key
      * @param key
      * @param uriInfo
      * @return
@@ -145,7 +145,7 @@ public class RestService {
     @ApiResponse(responseCode = "404", description = "Error")
     @ApiResponse(responseCode = "500", description = "Internal Server Error")
     @ApiResponse(responseCode = "503", description = "Service Unavailable")
-    @Tag(name = "valueByKey")
+    @Tag(name = "GetDataByKey")
     public KeyValueBean valueByKey(
             @PathParam("key")
             @Parameter(description = "The data key", required = true)
