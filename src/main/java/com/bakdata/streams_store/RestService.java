@@ -1,7 +1,12 @@
 package com.bakdata.streams_store;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.DoubleNode;
+import com.fasterxml.jackson.databind.node.NumericNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.fasterxml.jackson.databind.node.TextNode;
 import io.swagger.v3.jaxrs2.integration.OpenApiServlet;
 import io.swagger.v3.oas.annotations.info.Info;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -12,7 +17,12 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import org.apache.kafka.common.TopicPartition;
+import org.apache.kafka.common.serialization.Deserializer;
+import org.apache.kafka.common.serialization.Serde;
 import org.apache.kafka.common.serialization.Serdes;
+import org.apache.kafka.common.serialization.Serializer;
+import org.apache.kafka.connect.json.JsonDeserializer;
+import org.apache.kafka.connect.json.JsonSerializer;
 import org.apache.kafka.streams.KafkaStreams;
 import org.apache.kafka.streams.errors.InvalidStateStoreException;
 import org.apache.kafka.streams.state.*;
@@ -32,10 +42,7 @@ import javax.ws.rs.core.GenericType;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.UriInfo;
 import java.io.IOException;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
-import java.util.ServiceLoader;
+import java.util.*;
 import java.util.stream.Collectors;
 import io.swagger.v3.oas.annotations.*;
 
@@ -175,23 +182,34 @@ public class RestService {
              return fetchValue(metadata.hostInfo(), uriInfo.getPath(), new GenericType<KeyValueBean>() {});
         }
 
-        final ReadOnlyKeyValueStore<String, String> store = waitUntilStoreIsQueryable(keyStore, QueryableStoreTypes.keyValueStore(), streams);
+        final ReadOnlyKeyValueStore<String, JsonNode> store = waitUntilStoreIsQueryable(keyStore, QueryableStoreTypes.keyValueStore(), streams);
 
         if (store == null) {
             if (hasCache) {
                 return new KeyValueBean(key, cacheValue);
             } else {
+                System.out.println("store is null");
                 throw new NotFoundException();
             }
         }
 
-        final String value = store.get(key);
+        final JsonNode value = store.get(key);
 
         if (value == null) {
+            System.out.println("value is null");
             throw new NotFoundException();
         }
 
-        String valueString = toJson(value);
+        final JsonNode jsonNode = composeJson(value, key);
+
+        if (jsonNode == null) {
+            System.out.println("jsonNode is null");
+            throw new NotFoundException();
+        }
+
+        String valueString = jsonNode.toString();
+
+        /*String valueString = toJson(value.toString(), key);*/
 
         if (useRedis) {
             redisClient.remove(key, valueString);
@@ -201,6 +219,7 @@ public class RestService {
             inMemoryCache.remove(key);
             inMemoryCache.add(key, valueString);
         }
+
         return new KeyValueBean(key, valueString);
     }
 
@@ -253,6 +272,14 @@ public class RestService {
         private List<Integer> topicPartitions;
     }
 
+    /*@GET()
+    @Path("/listTopics")
+    @Produces(MediaType.APPLICATION_JSON)
+    public class listTopics() {
+
+        final StreamsMetadata metadata = streams.metadataForKey(keyStore, key, Serdes.String().serializer());
+    }*/
+
     /**
      *
      * @return
@@ -285,10 +312,86 @@ public class RestService {
 
     /**
      *
+     * @param col
+     * @param str
+     * @return
+     */
+    private boolean containsSubString (List<String> col, String str) {
+
+        for (String s: col) {
+            if (str.contains(s)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     *
+     * @param jsonNode
+     * @param key
+     * @return
+     */
+    private JsonNode composeJson(JsonNode jsonNode, String key) {
+
+        JsonNode dataNode = jsonNode.get("data");
+
+        if (dataNode.isNull()) {
+            return null;
+        }
+
+        ObjectMapper mapper = new ObjectMapper();
+
+        List<String> exclusions = Arrays.asList("timestamp", "string", "coefficient", "volt");
+
+        Iterator<Map.Entry<String, JsonNode>> it = dataNode.fields();
+
+        while (it.hasNext()) {
+
+            Map.Entry<String, JsonNode> nextKey = it.next();
+
+            if (containsSubString(exclusions, nextKey.getKey())) {
+                it.remove();
+                ((ObjectNode)dataNode).remove(nextKey.getKey());
+            }
+
+            if (!containsSubString(exclusions, nextKey.getKey())) {
+
+                if (nextKey.getValue().isArray()) {
+
+                    int size = nextKey.getValue().size();
+                    String thisKey = nextKey.getKey();
+                    ((ObjectNode) dataNode).set(thisKey, nextKey.getValue().get(size -1));
+                }
+            }
+        }
+
+        String streamString = "";
+        String instrumentString = "";
+        String[] parts = key.split("-");
+
+        if (parts.length < 6) {
+            return null;
+        }
+
+        streamString = parts[4] + "-" + parts[5];
+        instrumentString = parts[0] + "-" + parts[1] + "-" + parts[2] + "-" + parts[3];
+
+        ObjectNode streamNode = mapper.createObjectNode();
+        streamNode.set(streamString, dataNode);
+
+        ObjectNode instrumentNode = mapper.createObjectNode();
+        instrumentNode.set(instrumentString, streamNode);
+
+        return instrumentNode;
+    }
+
+    /**
+     *
      * @param valueString
      * @return java.lang.String
      */
-    private String toJson(String valueString) {
+    private String toJson(String valueString, String key) {
 
         ObjectMapper mapper = new ObjectMapper();
         JsonNode actualObj = null;
@@ -301,12 +404,15 @@ public class RestService {
         }
 
         JsonNode dataNode = actualObj.get("data");
+
         if (dataNode.isNull()) {
             return valueString;
         }
 
         JSONObject json = new JSONObject();
+
         processNode(dataNode, json, 0);
+
         return json.toString();
     }
 
