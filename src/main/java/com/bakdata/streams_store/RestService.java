@@ -1,12 +1,8 @@
 package com.bakdata.streams_store;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.DoubleNode;
-import com.fasterxml.jackson.databind.node.NumericNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import com.fasterxml.jackson.databind.node.TextNode;
 import io.swagger.v3.jaxrs2.integration.OpenApiServlet;
 import io.swagger.v3.oas.annotations.info.Info;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -17,12 +13,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import org.apache.kafka.common.TopicPartition;
-import org.apache.kafka.common.serialization.Deserializer;
-import org.apache.kafka.common.serialization.Serde;
 import org.apache.kafka.common.serialization.Serdes;
-import org.apache.kafka.common.serialization.Serializer;
-import org.apache.kafka.connect.json.JsonDeserializer;
-import org.apache.kafka.connect.json.JsonSerializer;
 import org.apache.kafka.streams.KafkaStreams;
 import org.apache.kafka.streams.errors.InvalidStateStoreException;
 import org.apache.kafka.streams.state.*;
@@ -391,7 +382,7 @@ public class RestService {
      * @param valueString
      * @return java.lang.String
      */
-    private String toJson(String valueString, String key) {
+    private String toJson(String valueString) {
 
         ObjectMapper mapper = new ObjectMapper();
         JsonNode actualObj = null;
@@ -404,15 +395,12 @@ public class RestService {
         }
 
         JsonNode dataNode = actualObj.get("data");
-
         if (dataNode.isNull()) {
             return valueString;
         }
 
         JSONObject json = new JSONObject();
-
         processNode(dataNode, json, 0);
-
         return json.toString();
     }
 
