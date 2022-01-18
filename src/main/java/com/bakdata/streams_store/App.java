@@ -1,5 +1,6 @@
 package com.bakdata.streams_store;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import net.sourceforge.argparse4j.ArgumentParsers;
 import net.sourceforge.argparse4j.inf.ArgumentParser;
 import net.sourceforge.argparse4j.inf.ArgumentParserException;
@@ -7,8 +8,9 @@ import net.sourceforge.argparse4j.inf.Namespace;
 
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.common.PartitionInfo;
-import org.apache.kafka.common.serialization.Serdes;
-import org.apache.kafka.common.serialization.StringDeserializer;
+import org.apache.kafka.common.serialization.*;
+import org.apache.kafka.connect.json.JsonDeserializer;
+import org.apache.kafka.connect.json.JsonSerializer;
 import org.apache.kafka.streams.KafkaStreams;
 import org.apache.kafka.streams.StreamsBuilder;
 import org.apache.kafka.streams.StreamsConfig;
@@ -18,6 +20,7 @@ import org.apache.kafka.streams.kstream.KTable;
 import org.apache.kafka.streams.kstream.Materialized;
 import org.apache.kafka.streams.state.KeyValueBytesStoreSupplier;
 import org.apache.kafka.streams.state.Stores;
+
 
 import java.io.InputStream;
 import java.nio.file.Files;
@@ -71,6 +74,7 @@ public class App {
             props.put("value.deserializer", StringDeserializer.class.getName());
             props.put(StreamsConfig.RETRIES_CONFIG, 10);
             props.put(StreamsConfig.RETRY_BACKOFF_MS_CONFIG, 100);
+
         } catch (ArgumentParserException e) {
             if (args.length == 0) {
                 parser.printHelp();
@@ -132,11 +136,15 @@ public class App {
 
             KeyValueBytesStoreSupplier stateStore = Stores.inMemoryKeyValueStore(name);
 
-            KTable<String, String> table = builder.table(
+            final Serializer<JsonNode> jsonNodeSerializer = new JsonSerializer();
+            final Deserializer<JsonNode> jsonNodeDeserializer = new JsonDeserializer();
+            final Serde<JsonNode> jsonNodeSerde = Serdes.serdeFrom(jsonNodeSerializer,jsonNodeDeserializer);
+
+            KTable<String, JsonNode> table = builder.table(
                     name,
-                    Materialized.<String, String>as(stateStore)
+                    Materialized.<String, JsonNode>as(stateStore)
                             .withKeySerde(Serdes.String())
-                            .withValueSerde(Serdes.String())
+                            .withValueSerde(jsonNodeSerde)
             );
         }
         return builder;
