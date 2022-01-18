@@ -1,5 +1,6 @@
 package com.bakdata.streams_store;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -16,6 +17,7 @@ import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.serialization.Serdes;
 import org.apache.kafka.streams.KafkaStreams;
 import org.apache.kafka.streams.errors.InvalidStateStoreException;
+import org.apache.kafka.streams.errors.StreamsException;
 import org.apache.kafka.streams.state.*;
 import org.eclipse.jetty.server.Server;
 import org.eclipse.jetty.servlet.DefaultServlet;
@@ -50,6 +52,8 @@ public class RestService {
 
     private final KafkaStreams streams;
     private final String raw = "__raw";
+    private final String dash = "-";
+    private final String streamMetadata = "metaData";
     private HostInfo hostInfo;
     private Server jettyServer;
     private final Client client = ClientBuilder.newBuilder().register(JacksonFeature.class).build();
@@ -128,13 +132,12 @@ public class RestService {
 
     /**
      * Gets data from a Kafka Streams Store by key
-     * @param key
+     * @param ref
      * @param uriInfo
      * @return
      * @throws InterruptedException
      */
     @GET
-    @Path("/{key}")
     @Produces(MediaType.APPLICATION_JSON)
     @Operation(summary = "OOI Instrument Data", description = "Gets instrument data by key")
     @ApiResponse(content = @Content(mediaType = "application/json"))
@@ -143,111 +146,132 @@ public class RestService {
     @ApiResponse(responseCode = "404", description = "Error")
     @ApiResponse(responseCode = "500", description = "Internal Server Error")
     @ApiResponse(responseCode = "503", description = "Service Unavailable")
-    @Tag(name = "GetDataByKey")
-    public KeyValueBean valueByKey(
-            @PathParam("key")
-            @Parameter(description = "The data key", required = true)
-            final String key,
+    @Tag(name = "GetDataByRef")
+    public JsonNode valueByKey(
+            @QueryParam("ref")
+            @Parameter(description = "The reference designator", required = true)
+            final String ref,
             @Context UriInfo uriInfo) throws InterruptedException {
 
-        String keyStore = key + raw;
+        boolean hasCache = useRedis ? redisClient.get(ref) != null : inMemoryCache.get(ref) != null;
 
-        boolean hasCache = useRedis ? redisClient.get(key) != null : inMemoryCache.get(key) != null;
+        JsonNode inMemoryCacheValue = (JsonNode) inMemoryCache.get(ref);
+        //JsonNode redisCacheValue = convert(redisClient.get(ref));
 
-        String cacheValue = useRedis ? redisClient.get(key) : (String) inMemoryCache.get(key);
+        ObjectMapper mapper = new ObjectMapper();
+        ObjectNode streamNode = mapper.createObjectNode();
 
-        final StreamsMetadata metadata = streams.metadataForKey(keyStore, key, Serdes.String().serializer());
+        ObjectNode notFoundNode = mapper.createObjectNode();
+        notFoundNode.put("message", "No data is available");
+        JsonNode notFound = notFoundNode;
 
-        if (metadata == null) {
-            if (hasCache) {
-                return new KeyValueBean(key, cacheValue);
-            } else {
-                throw new NotFoundException();
+        String instrumentString = "";
+        String[] parts = ref.split(dash);
+
+        if (parts.length < 3) {
+            streamNode.set(instrumentString, notFound);
+            return streamNode;
+        }
+
+        instrumentString = parts[0] + dash + parts[1] + dash + parts[2] + dash + parts[3];
+
+        Collection<StreamsMetadata> metas = streams.allMetadata();
+
+        if (metas.isEmpty()) {
+            /*if (useRedis && redisClient.get(streamMetadata) != null) {
+                metas = (Collection<StreamsMetadata>) new ArrayList<StreamsMetadata>(Arrays.asList(redisClient.get("metadata").split(",")));
+            }*/
+            if (!useRedis && inMemoryCache.get(streamMetadata) != null) {
+                metas = (Collection<StreamsMetadata>) inMemoryCache.get("metadata");
+            }
+            else {
+                streamNode.set(instrumentString, notFound);
+                return streamNode;
             }
         }
-
-        if (metadata.hostInfo().host() != "unavailable" &&
-                 metadata.hostInfo().port() != -1 &&
-                 !metadata.hostInfo().equals(hostInfo)) {
-
-             return fetchValue(metadata.hostInfo(), uriInfo.getPath(), new GenericType<KeyValueBean>() {});
-        }
-
-        final ReadOnlyKeyValueStore<String, JsonNode> store = waitUntilStoreIsQueryable(keyStore, QueryableStoreTypes.keyValueStore(), streams);
-
-        if (store == null) {
-            if (hasCache) {
-                return new KeyValueBean(key, cacheValue);
-            } else {
-                System.out.println("store is null");
-                throw new NotFoundException();
-            }
-        }
-
-        final JsonNode value = store.get(key);
-
-        if (value == null) {
-            System.out.println("value is null");
-            throw new NotFoundException();
-        }
-
-        final JsonNode jsonNode = composeJson(value, key);
-
-        if (jsonNode == null) {
-            System.out.println("jsonNode is null");
-            throw new NotFoundException();
-        }
-
-        String valueString = jsonNode.toString();
-
-        /*String valueString = toJson(value.toString(), key);*/
 
         if (useRedis) {
-            redisClient.remove(key, valueString);
-            redisClient.add(key, valueString);
+            redisClient.remove(streamMetadata, metas.toString());
+            redisClient.add(streamMetadata, metas.toString());
         }
         else {
-            inMemoryCache.remove(key);
-            inMemoryCache.add(key, valueString);
+            inMemoryCache.remove(streamMetadata);
+            inMemoryCache.add(streamMetadata, metas);
         }
 
-        return new KeyValueBean(key, valueString);
-    }
+        Set<String> topics = new HashSet<>();
 
-    /**
-     *  Wait until the store of type T is queryable.  When it is, return a reference to the store
-     * @param storeName
-     * @param queryableStoreType
-     * @param streams
-     * @param <T>
-     * @return
-     * @throws InterruptedException
-     */
-    private static <T> T waitUntilStoreIsQueryable(final String storeName,
-                                                  final QueryableStoreType<T> queryableStoreType,
-                                                  final KafkaStreams streams) throws InterruptedException {
-        while (true) {
-            try {
-                return streams.store(storeName, queryableStoreType);
-            } catch (InvalidStateStoreException ignored) {
-                System.out.println("The Store not yet ready for querying!");
-                Thread.sleep(30000);
+        for (StreamsMetadata smeta : metas) {
+            // only use stores that have some active partitions
+            if (smeta.topicPartitions().size() > 0) {
+                topics.addAll(smeta.stateStoreNames());
             }
         }
-    }
 
-    /**
-     *
-     * @param host
-     * @param path
-     * @param responseType
-     * @param <T>
-     * @return
-     */
-    private <T> T fetchValue(final HostInfo host, final String path, GenericType<T> responseType) {
-        return client.target(String.format("http://%s:%d/%s", host.host(), host.port(), path))
-                .request(MediaType.APPLICATION_JSON_TYPE)
-                .get(responseType);
+        Set<String> matches = new HashSet<>();
+
+        for (String topic : topics) {
+            if (topic.contains(instrumentString)) {
+                matches.add(topic);
+            }
+        }
+
+        for (String match : matches) {
+
+            String[] theseParts = match.split(dash);
+
+            if (theseParts.length < 5) {
+                streamNode.set(instrumentString, notFound);
+                return streamNode;
+            }
+
+            String thisStreamString = theseParts[4] + dash + theseParts[5].replace(raw, "");
+            String thisKey = match.replace(raw, "");
+
+            if (match.contains(instrumentString)) {
+
+                ReadOnlyKeyValueStore<String, JsonNode> store = waitUntilStoreIsQueryable(match, QueryableStoreTypes.keyValueStore(), streams);
+
+                if (store == null) {
+                    if (!useRedis && hasCache) {
+                        return inMemoryCacheValue;
+                    }
+                    else {
+                        streamNode.set(thisStreamString, notFound);
+                        continue;
+                    }
+                }
+
+                JsonNode value = store.get(thisKey);
+
+                if (value == null) {
+                    streamNode.set(thisStreamString, notFound);
+                    continue;
+                }
+
+                JsonNode jsonNode = composeJson(value);
+
+                if (jsonNode == null) {
+                    streamNode.set(thisStreamString, notFound);
+                    continue;
+                }
+                streamNode.set(thisStreamString, jsonNode);
+            }
+        }
+
+        ObjectNode instrumentNode = mapper.createObjectNode();
+        instrumentNode.set(instrumentString, streamNode);
+
+        if (useRedis) {
+            String valueString = instrumentNode.toString();
+            redisClient.remove(ref, valueString);
+            redisClient.add(ref, valueString);
+        }
+        else {
+            inMemoryCache.remove(ref);
+            inMemoryCache.add(ref, instrumentNode);
+        }
+        return instrumentNode;
     }
 
     /**
@@ -262,14 +286,6 @@ public class RestService {
         private int port;
         private List<Integer> topicPartitions;
     }
-
-    /*@GET()
-    @Path("/listTopics")
-    @Produces(MediaType.APPLICATION_JSON)
-    public class listTopics() {
-
-        final StreamsMetadata metadata = streams.metadataForKey(keyStore, key, Serdes.String().serializer());
-    }*/
 
     /**
      *
@@ -296,9 +312,66 @@ public class RestService {
     @Path("/status")
     @Produces(MediaType.APPLICATION_JSON)
     @Hidden
-    public String status() {
+    public HashMap status() {
 
-        return "App is up!";
+        HashMap<String, String> statusMap = new HashMap<String, String>();
+        statusMap.put("status", "running");
+        statusMap.put("message", "Live Data Service is up.");
+        return statusMap;
+    }
+
+    /**
+     *
+     * @param cacheValue
+     * @return
+     */
+    private JsonNode convert(String cacheValue) {
+
+        JsonNode jsonNode;
+        ObjectNode node = null;
+        try {
+            node = (ObjectNode) new ObjectMapper().readTree(cacheValue);
+        } catch (JsonProcessingException e) {
+            e.printStackTrace();
+        }
+        jsonNode = node;
+        return jsonNode;
+    }
+
+    /**
+     *  Wait until the store of type T is queryable.  When it is, return a reference to the store
+     * @param storeName
+     * @param queryableStoreType
+     * @param streams
+     * @param <T>
+     * @return
+     * @throws InterruptedException
+     */
+    private static <T> T waitUntilStoreIsQueryable(final String storeName,
+                                                   final QueryableStoreType<T> queryableStoreType,
+                                                   final KafkaStreams streams) throws InterruptedException {
+        while (true) {
+            try {
+                return streams.store(storeName, queryableStoreType);
+            } catch (InvalidStateStoreException ignored) {
+                System.out.println("The Store is not yet ready for querying!");
+                Thread.sleep(30000);
+            }
+        }
+    }
+
+    /**
+     *
+     * @param host
+     * @param path
+     * @param responseType
+     * @param <T>
+     * @return
+     */
+    private <T> T fetchValue(final HostInfo host, final String path, GenericType<T> responseType) {
+        return client.target(String.format("http://%s:%d/%s", host.host(), host.port(), path))
+                .request(MediaType.APPLICATION_JSON_TYPE)
+                .get(responseType);
     }
 
     /**
@@ -320,18 +393,15 @@ public class RestService {
     /**
      *
      * @param jsonNode
-     * @param key
      * @return
      */
-    private JsonNode composeJson(JsonNode jsonNode, String key) {
+    private JsonNode composeJson(JsonNode jsonNode) {
 
         JsonNode dataNode = jsonNode.get("data");
 
         if (dataNode.isNull()) {
             return null;
         }
-
-        ObjectMapper mapper = new ObjectMapper();
 
         List<String> exclusions = Arrays.asList("timestamp", "string", "coefficient", "volt");
 
@@ -356,142 +426,8 @@ public class RestService {
                 }
             }
         }
-
-        String streamString = "";
-        String instrumentString = "";
-        String[] parts = key.split("-");
-
-        if (parts.length < 6) {
-            return null;
-        }
-
-        streamString = parts[4] + "-" + parts[5];
-        instrumentString = parts[0] + "-" + parts[1] + "-" + parts[2] + "-" + parts[3];
-
-        ObjectNode streamNode = mapper.createObjectNode();
-        streamNode.set(streamString, dataNode);
-
-        ObjectNode instrumentNode = mapper.createObjectNode();
-        instrumentNode.set(instrumentString, streamNode);
-
-        return instrumentNode;
+        return dataNode;
     }
-
-    /**
-     *
-     * @param valueString
-     * @return java.lang.String
-     */
-    private String toJson(String valueString) {
-
-        ObjectMapper mapper = new ObjectMapper();
-        JsonNode actualObj = null;
-
-        try {
-            actualObj = mapper.readTree(valueString);
-        } catch (IOException e) {
-            e.printStackTrace();
-            return valueString;
-        }
-
-        JsonNode dataNode = actualObj.get("data");
-        if (dataNode.isNull()) {
-            return valueString;
-        }
-
-        JSONObject json = new JSONObject();
-        processNode(dataNode, json, 0);
-        return json.toString();
-    }
-
-    /**
-     *
-     * @param jsonNode
-     * @param json
-     * @param depth
-     */
-    private void processNode(JsonNode jsonNode, JSONObject json, int depth) {
-
-        /*if (jsonNode.isValueNode()) {
-          System.out.println("I'm a valueNode " + splitLast( jsonNode.asText()));
-        }*/
-        if (jsonNode.isArray()) {
-            for (JsonNode arrayItem : jsonNode) {
-                appendNodeToJson(arrayItem, json, depth, true);
-            }
-        }
-        else if (jsonNode.isObject()) {
-            appendNodeToJson(jsonNode, json, depth, false);
-        }
-    }
-
-    /**
-     *
-     * @param node
-     * @param json
-     * @param depth
-     * @param isArrayItem
-     */
-    private void appendNodeToJson(JsonNode node, JSONObject json, int depth, boolean isArrayItem) {
-
-        Iterator<Map.Entry<String, JsonNode>> fields = node.fields();
-        boolean isFirst = true;
-
-        while (fields.hasNext()) {
-            Map.Entry<String, JsonNode> jsonField = fields.next();
-            addFieldNameToJson(json, jsonField.getKey(), jsonField.getValue().toString(), depth, isArrayItem && isFirst);
-            processNode(jsonField.getValue(), json, depth + 1);
-            isFirst = false;
-        }
-    }
-
-    /**
-     *
-     * @param json
-     * @param fieldName
-     * @param fieldValue
-     * @param depth
-     * @param isFirstInArray
-     */
-    private void addFieldNameToJson(JSONObject json, String fieldName, String fieldValue, int depth, boolean isFirstInArray) {
-
-        if (!fieldName.contains("timestamp") &&
-                !fieldName.contains("string") &&
-                !fieldName.contains("coefficient") &&
-                !fieldName.contains("volt")) {
-
-            json.put(fieldName, getLastValue(fieldValue));
-        }
-    }
-
-    /**
-     *
-     * @param value
-     * @return java.lang.String
-     */
-    private String getLastValue(String value) {
-
-        String newVal = value;
-        int index = value.lastIndexOf(",");
-        if (index != -1) {
-            newVal = value.substring(index + 1);
-        }
-        return filterCharacters(newVal);
-    }
-
-    /**
-     *
-     * @param value
-     * @return java.lang.String
-     */
-    private String filterCharacters(String value) {
-
-        String newValue = value.replaceAll("\\]", "")
-                .replaceAll("\\[", "")
-                .replaceAll("\"", "");
-        return newValue;
-    }
-
 }
 
 

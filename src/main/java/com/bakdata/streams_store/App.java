@@ -74,6 +74,7 @@ public class App {
             props.put("value.deserializer", StringDeserializer.class.getName());
             props.put(StreamsConfig.RETRIES_CONFIG, 10);
             props.put(StreamsConfig.RETRY_BACKOFF_MS_CONFIG, 100);
+
         } catch (ArgumentParserException e) {
             if (args.length == 0) {
                 parser.printHelp();
@@ -138,7 +139,6 @@ public class App {
             final Serializer<JsonNode> jsonNodeSerializer = new JsonSerializer();
             final Deserializer<JsonNode> jsonNodeDeserializer = new JsonDeserializer();
             final Serde<JsonNode> jsonNodeSerde = Serdes.serdeFrom(jsonNodeSerializer,jsonNodeDeserializer);
-
 
             KTable<String, JsonNode> table = builder.table(
                     name,
