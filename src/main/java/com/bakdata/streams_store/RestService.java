@@ -176,13 +176,31 @@ public class RestService {
         instrumentString = parts[0] + dash + parts[1] + dash + parts[2] + dash + parts[3];
 
         Collection<StreamsMetadata> metas = streams.allMetadata();
+        Set<String> topics = new HashSet<>();
+        Set<String> matches = new HashSet<>();
+
+        if (!metas.isEmpty()) {
+
+            for (StreamsMetadata smeta : metas) {
+                // only use stores that have some active partitions
+                if (smeta.topicPartitions().size() > 0) {
+                    topics.addAll(smeta.stateStoreNames());
+                }
+            }
+            for (String topic : topics) {
+                if (topic.contains(instrumentString)) {
+                    matches.add(topic);
+                }
+            }
+        }
 
         if (metas.isEmpty()) {
-            /*if (useRedis && redisClient.get(streamMetadata) != null) {
-                metas = (Collection<StreamsMetadata>) new ArrayList<StreamsMetadata>(Arrays.asList(redisClient.get("metadata").split(",")));
-            }*/
-            if (!useRedis && inMemoryCache.get(streamMetadata) != null) {
-                metas = (Collection<StreamsMetadata>) inMemoryCache.get("metadata");
+
+            if (useRedis && redisClient.get(streamMetadata) != null) {
+                matches = (Set<String>) new ArrayList<String>(Arrays.asList(redisClient.get("metadata").split(",")));
+            }
+            else if (!useRedis && inMemoryCache.get(streamMetadata) != null) {
+                matches = (Set<String>) inMemoryCache.get(streamMetadata);
             }
             else {
                 streamNode.set(instrumentString, notFound);
@@ -191,29 +209,12 @@ public class RestService {
         }
 
         if (useRedis) {
-            redisClient.remove(streamMetadata, metas.toString());
-            redisClient.add(streamMetadata, metas.toString());
+            redisClient.remove(streamMetadata, matches.toString());
+            redisClient.add(streamMetadata, matches.toString());
         }
         else {
             inMemoryCache.remove(streamMetadata);
-            inMemoryCache.add(streamMetadata, metas);
-        }
-
-        Set<String> topics = new HashSet<>();
-
-        for (StreamsMetadata smeta : metas) {
-            // only use stores that have some active partitions
-            if (smeta.topicPartitions().size() > 0) {
-                topics.addAll(smeta.stateStoreNames());
-            }
-        }
-
-        Set<String> matches = new HashSet<>();
-
-        for (String topic : topics) {
-            if (topic.contains(instrumentString)) {
-                matches.add(topic);
-            }
+            inMemoryCache.add(streamMetadata, matches);
         }
 
         for (String match : matches) {
@@ -318,24 +319,6 @@ public class RestService {
         statusMap.put("status", "running");
         statusMap.put("message", "Live Data Service is up.");
         return statusMap;
-    }
-
-    /**
-     *
-     * @param cacheValue
-     * @return
-     */
-    private JsonNode convert(String cacheValue) {
-
-        JsonNode jsonNode;
-        ObjectNode node = null;
-        try {
-            node = (ObjectNode) new ObjectMapper().readTree(cacheValue);
-        } catch (JsonProcessingException e) {
-            e.printStackTrace();
-        }
-        jsonNode = node;
-        return jsonNode;
     }
 
     /**
