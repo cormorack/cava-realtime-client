@@ -110,6 +110,10 @@ public class App {
 
         restService.start();
 
+        if (useRedis) {
+            System.out.println("Using redis cache");
+        }
+
         Runtime.getRuntime().addShutdownHook(new Thread(() -> streams.close()));
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
             try {
