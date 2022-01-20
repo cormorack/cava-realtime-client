@@ -2,7 +2,7 @@ version: "3.2"
 
 services:
     cr-producer:
-        image: cormorack/cr-producer:0.1.1
+        image: cormorack/cr-producer:latest
         environment:
             - CR_PRODUCER_OOI_USERNAME=${OOI_USERNAME}
             - CR_PRODUCER_OOI_TOKEN=${OOI_TOKEN}
