@@ -1,33 +1,32 @@
-# Queryable Kafka Topics with Kafka Streams
+# Cava Realtime Client
 
-This application is derived from a blog post on [Medium](https://medium.com/bakdata/queryable-kafka-topics-with-kafka-streams-8d2cca9de33f).
+Home of the Interactive Oceans Realtime Data Service Client
 
-It is an implementation of a Kafka Streams application that provides a key-value query interface to the messages of key-partitioned Kafka topics.
+## Run with docker-compose
 
-## Quick Start
-
-Compile the project using Maven: 
-```
-mvn package
-```
-
-Start one or more instances of the Kafka Streams application:
+1. Build the images
 
 ```
-./streams-processor                         \
-    --streams-props                         \
-        bootstrap.servers=localhost:9092    \
-        num.standby.replicas=1              \
-    --application-id my-streams-processor   \
-    --hostname localhost
+docker-compose -f resources/docker/docker-compose.yaml build
 ```
-You can build a Docker image with: 
+
+2. Set OOI Username and Token
 
 ```
-docker build -f resources/docker/Dockerfile -t kafka-kv .
+export OOI_USERNAME=MyUser
+export OOI_TOKEN=AS3cret
 ```
-and run it with:
+
+3. Bring up all the components
 
 ```
-docker run -p 8081:8081 kafka-kv --streams-props bootstrap.servers=kafka:29092 num.standby.replicas=1 --application-id my-streams-processor --hostname localhost
+docker-compose -f resources/docker/docker-compose.yaml up
+```
+
+4. Go to http://localhost:8081/feed?ref=RS03AXPS-SF03A-2A-CTDPFA302
+
+5. Stop the components and tear down (Ctrl+C in the terminal)
+
+```
+docker-compose -f resources/docker/docker-compose.yaml down
 ```
