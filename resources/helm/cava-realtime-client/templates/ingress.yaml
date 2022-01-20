@@ -1,22 +1,35 @@
-{{- if and (eq .Values.ingress.expose true) (eq .Values.ingress.secure false) -}}
-  {{- $serviceName := default (include "cava-realtime-client.name" .) -}}
-  {{- $servicePort := .Values.service.port -}}
-  {{- $servicePath := .Values.path -}}
+
+{{- if .Values.ingress.expose -}}
+{{- $serviceName := default (include "cava-realtime-client.name" .) -}}
+{{- $servicePort := .Values.service.port -}}
+{{- $servicePath := .Values.path -}}
 # https://doc.traefik.io/traefik/providers/kubernetes-crd/#letsencrypt-support-with-the-custom-resource-definition-provider
 apiVersion: traefik.containo.us/v1alpha1
 kind: IngressRoute
 metadata:
-  name: {{ $serviceName }}
+  name: {{ $serviceName }}-secure
   labels:
     {{- include "cava-realtime-client.labels" . | nindent 4 }}
     app.kubernetes.io/component: {{ $serviceName }}
 spec:
   entryPoints:
     - web
+    - websecure
   routes:
+    {{- if .Values.ingress.secure }}
+    - match: Host(`{{ .Values.ingress.host }}`) && PathPrefix(`{{ $servicePath }}`)
+      kind: Rule
+      services:
+        - name: {{ $serviceName }}
+          port: {{ $servicePort }}
+    {{- end }}
     - match: PathPrefix(`{{ $servicePath }}`)
       kind: Rule
       services:
         - name: {{ $serviceName }}
           port: {{ $servicePort }}
-  {{- end -}}
+  {{- with .Values.ingress.tls }}
+  tls:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+{{- end -}}
