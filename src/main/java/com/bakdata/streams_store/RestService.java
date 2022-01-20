@@ -67,11 +67,11 @@ public class RestService {
      * @param hostName
      * @param port
      */
-    public RestService(final KafkaStreams streams, final String hostName, final int port, boolean useCache) {
+    public RestService(final KafkaStreams streams, final String hostName, final int port, boolean useCache, String rHost, Integer rPort) {
         this.streams = streams;
         this.hostInfo = new HostInfo(hostName, port);
         this.inMemoryCache = new InMemoryCache();
-        redisClient = RedisClient.getInstance(6379);
+        redisClient = RedisClient.getInstance(rPort, rHost);
         useRedis = useCache;
     }
 

@@ -30,22 +30,22 @@ public class RedisClient {
 
     private final JedisPoolConfig poolConfig = buildPoolConfig();
 
-    public static RedisClient getInstance(final int port) {
+    public static RedisClient getInstance(final int port, final String host) {
 
         if (instance == null) {
             synchronized (RedisClient.class) {
                 if (instance == null) {
-                    instance = new RedisClient(port);
+                    instance = new RedisClient(port, host);
                 }
             }
         }
         return instance;
     }
 
-    private RedisClient(int port) {
+    private RedisClient(int port, String host) {
         try {
             if (jedisPool == null) {
-                jedisPool = new JedisPool(poolConfig, "localhost", port);
+                jedisPool = new JedisPool(poolConfig, host, port);
             }
         } catch (Exception e) {
             System.out.println("Unable to connect to Redis" + e.getMessage());
