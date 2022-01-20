@@ -26,6 +26,6 @@ icon: https://interactiveoceans.washington.edu/wp-content/uploads/2018/12/intera
 
 dependencies:
   - name: cava-realtime
-    version: "0.1.1"
+    version: "0.1.2"
     repository: "https://cormorack.github.io/cava-realtime"
     condition: cava-realtime.enabled
