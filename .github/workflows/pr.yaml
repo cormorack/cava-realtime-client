@@ -43,7 +43,7 @@ jobs:
       - name: Set Job Environment Variables
         run: |
           DOCKER_TAG=PR
-          IMAGE_SPEC="${DOCKER_ORG}/cava-media:${DOCKER_TAG}"
+          IMAGE_SPEC="${DOCKER_ORG}/cava-realtime-client:${DOCKER_TAG}"
           echo "IMAGE_SPEC=${IMAGE_SPEC}" >> $GITHUB_ENV
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v1
