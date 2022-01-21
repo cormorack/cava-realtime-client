@@ -223,7 +223,6 @@ public class RestService {
             String thisKey = match.replace(raw, "");
 
             if (!match.contains(instrumentString)) {
-                streamNode.set(instrumentString, notFoundNode);
                 continue;
             }
 
