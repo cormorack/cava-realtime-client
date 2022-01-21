@@ -14,10 +14,8 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import org.apache.kafka.common.TopicPartition;
-import org.apache.kafka.common.serialization.Serdes;
 import org.apache.kafka.streams.KafkaStreams;
 import org.apache.kafka.streams.errors.InvalidStateStoreException;
-import org.apache.kafka.streams.errors.StreamsException;
 import org.apache.kafka.streams.state.*;
 import org.eclipse.jetty.server.Server;
 import org.eclipse.jetty.servlet.DefaultServlet;
@@ -26,7 +24,7 @@ import org.eclipse.jetty.servlet.ServletHolder;
 import org.glassfish.jersey.jackson.JacksonFeature;
 import org.glassfish.jersey.server.ResourceConfig;
 import org.glassfish.jersey.servlet.ServletContainer;
-import org.json.JSONObject;
+
 import javax.ws.rs.*;
 import javax.ws.rs.client.Client;
 import javax.ws.rs.client.ClientBuilder;
@@ -34,7 +32,6 @@ import javax.ws.rs.core.Context;
 import javax.ws.rs.core.GenericType;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.UriInfo;
-import java.io.IOException;
 import java.util.*;
 import java.util.stream.Collectors;
 import io.swagger.v3.oas.annotations.*;
@@ -139,7 +136,7 @@ public class RestService {
      */
     @GET
     @Produces(MediaType.APPLICATION_JSON)
-    @Operation(summary = "OOI Instrument Data", description = "Gets instrument data by key")
+    @Operation(summary = "OOI Instrument Data", description = "Gets instrument data by reference designator")
     @ApiResponse(content = @Content(mediaType = "application/json"))
     @ApiResponse(responseCode = "200", description = "Ok")
     @ApiResponse(responseCode = "400", description = "Bad Request")
@@ -156,21 +153,18 @@ public class RestService {
         boolean hasCache = useRedis ? redisClient.get(ref) != null : inMemoryCache.get(ref) != null;
 
         JsonNode inMemoryCacheValue = (JsonNode) inMemoryCache.get(ref);
-        //JsonNode redisCacheValue = convert(redisClient.get(ref));
 
         ObjectMapper mapper = new ObjectMapper();
         ObjectNode streamNode = mapper.createObjectNode();
 
         ObjectNode notFoundNode = mapper.createObjectNode();
         notFoundNode.put("message", "No data is available");
-        JsonNode notFound = notFoundNode;
 
         String instrumentString = "";
         String[] parts = ref.split(dash);
 
-        if (parts.length < 3) {
-            streamNode.set(instrumentString, notFound);
-            return streamNode;
+        if (parts.length < 4) {
+            return notFoundNode;
         }
 
         instrumentString = parts[0] + dash + parts[1] + dash + parts[2] + dash + parts[3];
@@ -203,8 +197,7 @@ public class RestService {
                 matches = (Set<String>) inMemoryCache.get(streamMetadata);
             }
             else {
-                streamNode.set(instrumentString, notFound);
-                return streamNode;
+                return notFoundNode;
             }
         }
 
@@ -222,42 +215,49 @@ public class RestService {
             String[] theseParts = match.split(dash);
 
             if (theseParts.length < 5) {
-                streamNode.set(instrumentString, notFound);
-                return streamNode;
+                streamNode.set(instrumentString, notFoundNode);
+                continue;
             }
 
             String thisStreamString = theseParts[4] + dash + theseParts[5].replace(raw, "");
             String thisKey = match.replace(raw, "");
 
-            if (match.contains(instrumentString)) {
+            if (!match.contains(instrumentString)) {
+                streamNode.set(instrumentString, notFoundNode);
+                continue;
+            }
 
-                ReadOnlyKeyValueStore<String, JsonNode> store = waitUntilStoreIsQueryable(match, QueryableStoreTypes.keyValueStore(), streams);
+            ReadOnlyKeyValueStore<String, JsonNode> store = waitUntilStoreIsQueryable(match, QueryableStoreTypes.keyValueStore(), streams);
 
-                if (store == null) {
-                    if (!useRedis && hasCache) {
-                        return inMemoryCacheValue;
+            if (store == null) {
+                if (hasCache) {
+                    if (useRedis) {
+                        return fillNode(redisClient.get(ref), notFoundNode);
                     }
                     else {
-                        streamNode.set(thisStreamString, notFound);
-                        continue;
+                        return inMemoryCacheValue;
                     }
                 }
-
-                JsonNode value = store.get(thisKey);
-
-                if (value == null) {
-                    streamNode.set(thisStreamString, notFound);
+                else {
+                    streamNode.set(thisStreamString, notFoundNode);
                     continue;
                 }
-
-                JsonNode jsonNode = composeJson(value);
-
-                if (jsonNode == null) {
-                    streamNode.set(thisStreamString, notFound);
-                    continue;
-                }
-                streamNode.set(thisStreamString, jsonNode);
             }
+
+            JsonNode value = store.get(thisKey);
+
+            if (value == null) {
+                streamNode.set(thisStreamString, notFoundNode);
+                continue;
+            }
+
+            JsonNode jsonNode = composeJson(value);
+
+            if (jsonNode == null) {
+                streamNode.set(thisStreamString, notFoundNode);
+                continue;
+            }
+            streamNode.set(thisStreamString, jsonNode);
         }
 
         ObjectNode instrumentNode = mapper.createObjectNode();
@@ -319,6 +319,24 @@ public class RestService {
         statusMap.put("status", "running");
         statusMap.put("message", "Live Data Service is up.");
         return statusMap;
+    }
+
+    /**
+     * Creates a JsonNode and attempts to fill it with a String value
+     * @param cacheValue String value
+     * @param notFoundNode ObjectNode with not found message
+     * @return
+     */
+    private JsonNode fillNode(String cacheValue, ObjectNode notFoundNode) {
+
+        ObjectNode node = null;
+        try {
+            node = (ObjectNode) new ObjectMapper().readTree(cacheValue);
+        } catch (JsonProcessingException e) {
+            System.out.println(e.getMessage());
+            return notFoundNode;
+        }
+        return node;
     }
 
     /**
