@@ -32,6 +32,7 @@ import static net.sourceforge.argparse4j.impl.Arguments.store;
 public class App {
 
     public static void main(String[] args) throws Exception {
+
         ArgumentParser parser = argParser();
         Properties props = new Properties();
         String hostName = null;
@@ -39,6 +40,13 @@ public class App {
         Integer port = null;
         Integer redisPort = null;
         boolean useRedis = false;
+
+        // Adds a 10 second delay to ensure that Kafka is ready
+        try {
+            Thread.sleep(10000);
+        } catch (InterruptedException ie) {
+            Thread.currentThread().interrupt();
+        }
 
         try {
             Namespace res = parser.parseArgs(args);

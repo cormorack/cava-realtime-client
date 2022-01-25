@@ -160,14 +160,12 @@ public class RestService {
         ObjectNode notFoundNode = mapper.createObjectNode();
         notFoundNode.put("message", "No data is available");
 
-        String instrumentString = "";
         String[] parts = ref.split(dash);
-
         if (parts.length < 4) {
             return notFoundNode;
         }
 
-        instrumentString = parts[0] + dash + parts[1] + dash + parts[2] + dash + parts[3];
+        final String instrumentString = parts[0] + dash + parts[1] + dash + parts[2] + dash + parts[3];
 
         Collection<StreamsMetadata> metas = streams.allMetadata();
         Set<String> topics = new HashSet<>();
@@ -210,6 +208,11 @@ public class RestService {
             inMemoryCache.add(streamMetadata, matches);
         }
 
+        boolean b = matches.stream().allMatch( s -> instrumentString.contains(s) );
+        if (b) {
+            return notFoundNode;
+        }
+
         for (String match : matches) {
 
             String[] theseParts = match.split(dash);
@@ -221,10 +224,6 @@ public class RestService {
 
             String thisStreamString = theseParts[4] + dash + theseParts[5].replace(raw, "");
             String thisKey = match.replace(raw, "");
-
-            if (!match.contains(instrumentString)) {
-                continue;
-            }
 
             ReadOnlyKeyValueStore<String, JsonNode> store = waitUntilStoreIsQueryable(match, QueryableStoreTypes.keyValueStore(), streams);
 
