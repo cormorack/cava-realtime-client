@@ -49,18 +49,18 @@ spec:
             - {{ .Values.arguments.appID }}
             {{- if .Values.arguments.useRedis }}
             - --useRedis
-            - {{ .Values.arguments.useRedis }}
+            - "{{ .Values.arguments.useRedis }}"
             {{- else }}
             - --useRedis
             - "false"
             {{- end}}
             {{- if .Values.arguments.redisHost }}
             - --redisHost
-            - {{ .Values.arguments.redisHost }}
+            - "{{ .Values.arguments.redisHost }}"
             {{- end}}
             {{- if .Values.arguments.redisPort }}
             - --redisPort
-            - {{ .Values.arguments.redisPort }}
+            - "{{ .Values.arguments.redisPort }}"
             {{- end}}
             - --hostname
             - $(POD_IP)
