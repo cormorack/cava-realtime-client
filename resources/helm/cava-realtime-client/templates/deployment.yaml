@@ -47,6 +47,12 @@ spec:
             - /var/config/streams-processor.properties
             - --application-id
             - {{ .Values.arguments.appID }}
+            - --useRedis
+            - {{ .Values.arguments.useRedis }}
+            - --redisHost
+            - {{ .Values.arguments.redisHost }}
+            - --redisPort
+            - {{ .Values.arguments.redisPort }}
             - --hostname
             - $(POD_IP)
           imagePullPolicy: {{ .Values.image.pullPolicy }}

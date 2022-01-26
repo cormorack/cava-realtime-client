@@ -34,6 +34,10 @@ services:
           - localhost
           - --useRedis
           - "true"
+          - --redisHost
+          - localhost
+          - --redisPort
+          - "6379"
         networks:
             - io2network
     redis-service:
