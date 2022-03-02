@@ -48,7 +48,7 @@ public class RedisClient {
                 jedisPool = new JedisPool(poolConfig, host, port);
             }
         } catch (Exception e) {
-            System.out.println("Unable to connect to Redis" + e.getMessage());
+            System.out.println("Unable to connect to Redis: " + e.getMessage());
         }
     }
 
@@ -56,7 +56,7 @@ public class RedisClient {
         try (Jedis jedis = jedisPool.getResource()) {
             return jedis.get(key);
         } catch (Exception ex) {
-            System.out.println("Exception caught in get" + ex.getMessage());
+            System.out.println("Exception caught in get():  " + ex.getMessage());
         }
         return null;
     }
@@ -65,7 +65,7 @@ public class RedisClient {
         try (Jedis jedis = jedisPool.getResource()) {
             return jedis.set(key, value);
         } catch (Exception ex) {
-            System.out.println("Exception caught in set" + ex.getMessage());
+            System.out.println("Exception caught in add(): " + ex.getMessage());
         }
         return null;
     }
@@ -74,7 +74,7 @@ public class RedisClient {
         try (Jedis jedis = jedisPool.getResource()) {
             return jedis.del(key, value);
         } catch (Exception ex) {
-            System.out.println("Exception caught in set" + ex.getMessage());
+            System.out.println("Exception caught in remove(): " + ex.getMessage());
         }
         return null;
     }
