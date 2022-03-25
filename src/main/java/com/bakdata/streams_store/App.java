@@ -20,6 +20,7 @@ import org.apache.kafka.streams.kstream.KTable;
 import org.apache.kafka.streams.kstream.Materialized;
 import org.apache.kafka.streams.state.KeyValueBytesStoreSupplier;
 import org.apache.kafka.streams.state.Stores;
+import org.apache.kafka.streams.errors.LogAndContinueExceptionHandler;
 
 
 import java.io.InputStream;
@@ -86,6 +87,7 @@ public class App {
             props.put("value.deserializer", StringDeserializer.class.getName());
             props.put(StreamsConfig.RETRIES_CONFIG, 10);
             props.put(StreamsConfig.RETRY_BACKOFF_MS_CONFIG, 100);
+            props.put(StreamsConfig.DEFAULT_DESERIALIZATION_EXCEPTION_HANDLER_CLASS_CONFIG, LogAndContinueExceptionHandler.class);
 
         } catch (ArgumentParserException e) {
             if (args.length == 0) {
@@ -106,17 +108,6 @@ public class App {
         final Topology topology = builder.build();
 
         final KafkaStreams streams = new KafkaStreams(topology, props);
-
-        streams.setUncaughtExceptionHandler((Thread thread, Throwable throwable) -> {
-
-            System.out.println("Uncaught Exception in thread " + thread.getName());
-            System.out.println("Exception is " + throwable.getMessage());
-        });
-        /*streams.setUncaughtExceptionHandler(ex -> {
-            System.out.println("Kafka-Streams uncaught exception occurred. Stream will be replaced with new thread");
-            System.out.println("Exception is " + ex.getMessage());
-            return StreamsUncaughtExceptionHandler.StreamThreadExceptionResponse.REPLACE_THREAD;
-        });*/
 
         final RestService restService = new RestService(streams, hostName, port, useRedis, redisHost, redisPort);
 
