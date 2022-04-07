@@ -402,7 +402,7 @@ public class RestService {
             return null;
         }
 
-        List<String> exclusions = Arrays.asList("timestamp", "string", "coefficient", "volt");
+        List<String> exclusions = Arrays.asList("timestamp", "string", "volt");
 
         Iterator<Map.Entry<String, JsonNode>> it = dataNode.fields();
 
