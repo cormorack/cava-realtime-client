@@ -47,5 +47,6 @@ arguments:
   useRedis: ""
   redisHost: ""
   redisPort: ""
+  redisUri: ""
 cava-realtime:
   enabled: true

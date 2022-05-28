@@ -4,7 +4,12 @@ import redis.clients.jedis.Jedis;
 import redis.clients.jedis.JedisPool;
 import redis.clients.jedis.JedisPoolConfig;
 
-import java.time.Duration;
+import javax.net.ssl.HostnameVerifier;
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.TrustManager;
+import javax.net.ssl.X509TrustManager;
+import java.net.URI;
+import java.security.cert.X509Certificate;
 
 public class RedisClient {
 
@@ -21,8 +26,6 @@ public class RedisClient {
         poolConfig.setTestOnBorrow(true);
         poolConfig.setTestOnReturn(true);
         poolConfig.setTestWhileIdle(true);
-        poolConfig.setMinEvictableIdleTimeMillis(Duration.ofSeconds(60).toMillis());
-        poolConfig.setTimeBetweenEvictionRunsMillis(Duration.ofSeconds(30).toMillis());
         poolConfig.setNumTestsPerEvictionRun(3);
         poolConfig.setBlockWhenExhausted(true);
         return poolConfig;
@@ -30,22 +33,55 @@ public class RedisClient {
 
     private final JedisPoolConfig poolConfig = buildPoolConfig();
 
-    public static RedisClient getInstance(final int port, final String host) {
+    public static RedisClient getInstance(final int port, final String host, final URI uri) {
 
         if (instance == null) {
             synchronized (RedisClient.class) {
                 if (instance == null) {
-                    instance = new RedisClient(port, host);
+                    instance = new RedisClient(port, host, uri);
                 }
             }
         }
         return instance;
     }
 
-    private RedisClient(int port, String host) {
+    private RedisClient(int port, String host, URI uri) {
+
         try {
             if (jedisPool == null) {
-                jedisPool = new JedisPool(poolConfig, host, port);
+
+                boolean useHostAndPort = (host != null) && host != "" && port != 0;
+
+                boolean useUri = (uri != null) && !uri.equals("") && !useHostAndPort;
+
+                if (useHostAndPort) {
+                    System.out.println("**************************** redis is using host + " + host +" and port " + port);
+                    jedisPool = new JedisPool(poolConfig, host, port);
+                }
+                else if (useUri) {
+                    System.out.println("**************************** redis is using uri " + uri);
+
+                    TrustManager bogusTrustManager = new X509TrustManager() {
+                        public X509Certificate[] getAcceptedIssuers() {
+                            return null;
+                        }
+                        public void checkClientTrusted(X509Certificate[] certs, String authType) {}
+                        public void checkServerTrusted(X509Certificate[] certs, String authType) {}
+                    };
+
+                    SSLContext sslContext = SSLContext.getInstance("SSL");
+                    sslContext.init(null, new TrustManager[] { bogusTrustManager }, new java.security.SecureRandom());
+
+                    HostnameVerifier bogusHostnameVerifier = (hostname, session) -> true;
+
+                    jedisPool = new JedisPool(
+                            poolConfig,
+                            uri,
+                            sslContext.getSocketFactory(),
+                            sslContext.getDefaultSSLParameters(),
+                            bogusHostnameVerifier
+                    );
+                }
             }
         } catch (Exception e) {
             System.out.println("Unable to connect to Redis: " + e.getMessage());

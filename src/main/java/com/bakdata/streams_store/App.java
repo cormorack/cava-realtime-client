@@ -22,8 +22,8 @@ import org.apache.kafka.streams.state.KeyValueBytesStoreSupplier;
 import org.apache.kafka.streams.state.Stores;
 import org.apache.kafka.streams.errors.LogAndContinueExceptionHandler;
 
-
 import java.io.InputStream;
+import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.*;
@@ -39,8 +39,9 @@ public class App {
         String hostName = null;
         String redisHost = null;
         Integer port = null;
-        Integer redisPort = null;
+        int redisPort = 0;
         boolean useRedis = false;
+        URI redisUri = null;
 
         // Adds a 10 second delay to ensure that Kafka is ready
         try {
@@ -53,6 +54,7 @@ public class App {
             Namespace res = parser.parseArgs(args);
             hostName = res.getString("hostname");
             redisHost = res.getString("redisHost");
+            redisUri = URI.create(res.getString("redisUri"));
             port = res.getInt("port");
             redisPort = res.getInt("redisPort");
             useRedis = res.getBoolean("useRedis");
@@ -109,7 +111,7 @@ public class App {
 
         final KafkaStreams streams = new KafkaStreams(topology, props);
 
-        final RestService restService = new RestService(streams, hostName, port, useRedis, redisHost, redisPort);
+        final RestService restService = new RestService(streams, hostName, port, useRedis, redisHost, redisPort, redisUri);
 
         restService.start();
 
@@ -168,6 +170,7 @@ public class App {
      * @return ArgumentParser
      */
     private static ArgumentParser argParser() {
+
         ArgumentParser parser = ArgumentParsers
                 .newFor("streams-processor").build()
                 .defaultHelp(true)
@@ -220,8 +223,16 @@ public class App {
                 .required(false)
                 .type(String.class)
                 .metavar("REDIS-HOST")
-                .setDefault("localhost")
+                .setDefault("")
                 .help("The host redis is running under.");
+
+        parser.addArgument("--redisUri")
+                .action(store())
+                .required(false)
+                .type(String.class)
+                .metavar("REDIS-URI")
+                .setDefault("")
+                .help("The redis service url.");
 
         parser.addArgument("--port")
                 .action(store())
@@ -236,7 +247,7 @@ public class App {
                 .required(false)
                 .type(Integer.class)
                 .metavar("REDIS-PORT")
-                .setDefault(6379)
+                .setDefault(0)
                 .help("The Redis Port");
 
         parser.addArgument("--useRedis")
