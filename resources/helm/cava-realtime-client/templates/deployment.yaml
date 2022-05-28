@@ -58,9 +58,9 @@ spec:
             - --redisHost
             - "{{ .Values.arguments.redisHost }}"
             {{- end}}
-            {{- if .Values.arguments.redisHost }}
+            {{- if .Values.arguments.redisUri }}
             - --redisUri
-            - "{{ .Values.arguments.redisHost }}"
+            - "{{ .Values.arguments.redisUri }}"
             {{- end}}
             {{- if .Values.arguments.redisPort }}
             - --redisPort
