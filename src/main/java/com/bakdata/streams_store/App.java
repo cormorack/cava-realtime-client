@@ -24,6 +24,7 @@ import org.apache.kafka.streams.errors.LogAndContinueExceptionHandler;
 
 import java.io.InputStream;
 import java.net.URI;
+import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.*;
@@ -54,7 +55,9 @@ public class App {
             Namespace res = parser.parseArgs(args);
             hostName = res.getString("hostname");
             redisHost = res.getString("redisHost");
-            redisUri = URI.create(res.getString("redisUri"));
+            if (res.getString("redisUri") !="") {
+                redisUri = URI.create(res.getString("redisUri"));
+            }
             port = res.getInt("port");
             redisPort = res.getInt("redisPort");
             useRedis = res.getBoolean("useRedis");
@@ -163,6 +166,16 @@ public class App {
             );
         }
         return builder;
+    }
+
+    private static boolean isValidUrl(String url) {
+        try {
+            new URL(url).toURI();
+            return true;
+        }
+        catch (Exception e) {
+            return false;
+        }
     }
 
     /**

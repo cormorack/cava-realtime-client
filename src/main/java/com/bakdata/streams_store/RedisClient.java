@@ -55,7 +55,7 @@ public class RedisClient {
                 boolean useUri = (uri != null) && !uri.equals("") && !useHostAndPort;
 
                 if (useHostAndPort) {
-                    System.out.println("**************************** redis is using host + " + host +" and port " + port);
+                    System.out.println("**************************** redis is using host '" + host + "' and port " + port);
                     jedisPool = new JedisPool(poolConfig, host, port);
                 }
                 else if (useUri) {
