@@ -54,17 +54,9 @@ spec:
             - --useRedis
             - "false"
             {{- end}}
-            {{- if .Values.arguments.redisHost }}
-            - --redisHost
-            - "{{ .Values.arguments.redisHost }}"
-            {{- end}}
             {{- if .Values.arguments.redisUri }}
             - --redisUri
             - "{{ .Values.arguments.redisUri }}"
-            {{- end}}
-            {{- if .Values.arguments.redisPort }}
-            - --redisPort
-            - "{{ .Values.arguments.redisPort }}"
             {{- end}}
             - --hostname
             - $(POD_IP)

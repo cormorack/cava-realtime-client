@@ -37,9 +37,7 @@ public class App {
         ArgumentParser parser = argParser();
         Properties props = new Properties();
         String hostName = null;
-        String redisHost = null;
         Integer port = null;
-        int redisPort = 0;
         boolean useRedis = false;
         URI redisUri = null;
 
@@ -53,12 +51,10 @@ public class App {
         try {
             Namespace res = parser.parseArgs(args);
             hostName = res.getString("hostname");
-            redisHost = res.getString("redisHost");
             if (res.getString("redisUri") !="") {
                 redisUri = URI.create(res.getString("redisUri"));
             }
             port = res.getInt("port");
-            redisPort = res.getInt("redisPort");
             useRedis = res.getBoolean("useRedis");
             String applicationId = res.getString("applicationId");
             List<String> streamsProps = res.getList("streamsConfig");
@@ -113,7 +109,7 @@ public class App {
 
         final KafkaStreams streams = new KafkaStreams(topology, props);
 
-        final RestService restService = new RestService(streams, hostName, port, useRedis, redisHost, redisPort, redisUri);
+        final RestService restService = new RestService(streams, hostName, port, useRedis, redisUri);
 
         restService.start();
 
@@ -220,14 +216,6 @@ public class App {
                 .setDefault("localhost")
                 .help("The host name of this machine / pod / container. Used for inter-processor communication.");
 
-        parser.addArgument("--redisHost")
-                .action(store())
-                .required(false)
-                .type(String.class)
-                .metavar("REDIS-HOST")
-                .setDefault("")
-                .help("The host redis is running under.");
-
         parser.addArgument("--redisUri")
                 .action(store())
                 .required(false)
@@ -243,14 +231,6 @@ public class App {
                 .metavar("PORT")
                 .setDefault(8081)
                 .help("The TCP Port for the HTTP REST Service");
-
-        parser.addArgument("--redisPort")
-                .action(store())
-                .required(false)
-                .type(Integer.class)
-                .metavar("REDIS-PORT")
-                .setDefault(0)
-                .help("The Redis Port");
 
         parser.addArgument("--useRedis")
                 .action(store())

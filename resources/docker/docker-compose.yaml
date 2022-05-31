@@ -34,10 +34,6 @@ services:
           - localhost
           - --useRedis
           - "true"
-#          - --redisHost
-#          - localhost
-#          - --redisPort
-#          - "6379"
           - --redisUri
           - 'redis://redis-service:6379/0?ssl_cert_reqs=optional'
         networks:
