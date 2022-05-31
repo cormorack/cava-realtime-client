@@ -216,14 +216,6 @@ public class App {
                 .setDefault("localhost")
                 .help("The host name of this machine / pod / container. Used for inter-processor communication.");
 
-        parser.addArgument("--redisUri")
-                .action(store())
-                .required(false)
-                .type(String.class)
-                .metavar("REDIS-URI")
-                .setDefault("")
-                .help("The redis service url.");
-
         parser.addArgument("--port")
                 .action(store())
                 .required(false)
@@ -231,6 +223,14 @@ public class App {
                 .metavar("PORT")
                 .setDefault(8081)
                 .help("The TCP Port for the HTTP REST Service");
+
+        parser.addArgument("--redisUri")
+                .action(store())
+                .required(false)
+                .type(String.class)
+                .metavar("REDIS-URI")
+                .setDefault("")
+                .help("The redis service url.");
 
         parser.addArgument("--useRedis")
                 .action(store())
