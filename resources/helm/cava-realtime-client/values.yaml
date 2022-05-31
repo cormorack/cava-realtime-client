@@ -45,7 +45,6 @@ configmap:
 arguments:
   appID: ""
   useRedis: ""
-  redisHost: ""
-  redisPort: ""
+  redisUri: ""
 cava-realtime:
   enabled: true

@@ -32,6 +32,7 @@ import javax.ws.rs.core.Context;
 import javax.ws.rs.core.GenericType;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.UriInfo;
+import java.net.URI;
 import java.util.*;
 import java.util.stream.Collectors;
 import io.swagger.v3.oas.annotations.*;
@@ -64,12 +65,17 @@ public class RestService {
      * @param hostName
      * @param port
      */
-    public RestService(final KafkaStreams streams, final String hostName, final int port, boolean useCache, String rHost, Integer rPort) {
+    public RestService(final KafkaStreams streams, final String hostName, final int port, boolean useRemoteCache, URI rUri) {
         this.streams = streams;
         this.hostInfo = new HostInfo(hostName, port);
-        this.inMemoryCache = new InMemoryCache();
-        redisClient = RedisClient.getInstance(rPort, rHost);
-        useRedis = useCache;
+
+        if (!useRemoteCache) {
+            this.inMemoryCache = new InMemoryCache();
+        }
+        if (useRemoteCache) {
+            redisClient = RedisClient.getInstance(rUri);
+        }
+        useRedis = useRemoteCache;
     }
 
     /**

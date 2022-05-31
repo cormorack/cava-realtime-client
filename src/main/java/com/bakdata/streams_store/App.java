@@ -22,8 +22,8 @@ import org.apache.kafka.streams.state.KeyValueBytesStoreSupplier;
 import org.apache.kafka.streams.state.Stores;
 import org.apache.kafka.streams.errors.LogAndContinueExceptionHandler;
 
-
 import java.io.InputStream;
+import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.*;
@@ -37,10 +37,9 @@ public class App {
         ArgumentParser parser = argParser();
         Properties props = new Properties();
         String hostName = null;
-        String redisHost = null;
         Integer port = null;
-        Integer redisPort = null;
         boolean useRedis = false;
+        URI redisUri = null;
 
         // Adds a 10 second delay to ensure that Kafka is ready
         try {
@@ -52,9 +51,10 @@ public class App {
         try {
             Namespace res = parser.parseArgs(args);
             hostName = res.getString("hostname");
-            redisHost = res.getString("redisHost");
+            if (res.getString("redisUri") !="") {
+                redisUri = URI.create(res.getString("redisUri"));
+            }
             port = res.getInt("port");
-            redisPort = res.getInt("redisPort");
             useRedis = res.getBoolean("useRedis");
             String applicationId = res.getString("applicationId");
             List<String> streamsProps = res.getList("streamsConfig");
@@ -109,7 +109,7 @@ public class App {
 
         final KafkaStreams streams = new KafkaStreams(topology, props);
 
-        final RestService restService = new RestService(streams, hostName, port, useRedis, redisHost, redisPort);
+        final RestService restService = new RestService(streams, hostName, port, useRedis, redisUri);
 
         restService.start();
 
@@ -168,6 +168,7 @@ public class App {
      * @return ArgumentParser
      */
     private static ArgumentParser argParser() {
+
         ArgumentParser parser = ArgumentParsers
                 .newFor("streams-processor").build()
                 .defaultHelp(true)
@@ -215,14 +216,6 @@ public class App {
                 .setDefault("localhost")
                 .help("The host name of this machine / pod / container. Used for inter-processor communication.");
 
-        parser.addArgument("--redisHost")
-                .action(store())
-                .required(false)
-                .type(String.class)
-                .metavar("REDIS-HOST")
-                .setDefault("localhost")
-                .help("The host redis is running under.");
-
         parser.addArgument("--port")
                 .action(store())
                 .required(false)
@@ -231,13 +224,13 @@ public class App {
                 .setDefault(8081)
                 .help("The TCP Port for the HTTP REST Service");
 
-        parser.addArgument("--redisPort")
+        parser.addArgument("--redisUri")
                 .action(store())
                 .required(false)
-                .type(Integer.class)
-                .metavar("REDIS-PORT")
-                .setDefault(6379)
-                .help("The Redis Port");
+                .type(String.class)
+                .metavar("REDIS-URI")
+                .setDefault("")
+                .help("The redis service url.");
 
         parser.addArgument("--useRedis")
                 .action(store())
