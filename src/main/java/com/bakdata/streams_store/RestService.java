@@ -67,10 +67,8 @@ public class RestService {
     public RestService(final KafkaStreams streams, final String hostName, final int port, boolean useRemoteCache, URI rUri) {
         this.streams = streams;
         this.hostInfo = new HostInfo(hostName, port);
+        this.inMemoryCache = new InMemoryCache();
 
-        if (!useRemoteCache) {
-            this.inMemoryCache = new InMemoryCache();
-        }
         if (useRemoteCache) {
             redisClient = RedisClient.getInstance(rUri);
         }
